@@ -17,8 +17,8 @@ use gofi_core::store::State;
 use gofi_core::{Action, Env, Item, ItemId, ItemKind, Mode, Provider};
 use rune::tok::TextStyle;
 use rune::{
-    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, Span, TextEdit, Tx, WheelEvent,
-    WindowOptions, col, el, row, text, text_input,
+    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, LineCap, Shape, Span, TextEdit,
+    Tx, WheelEvent, WindowOptions, canvas, col, el, row, text, text_input,
 };
 
 const PANEL_W: f32 = 960.0;
@@ -216,22 +216,7 @@ impl AppState {
         if self.selected >= self.ranked.len() {
             self.selected = self.ranked.len().saturating_sub(1);
         }
-        self.clamp_offset();
-    }
-
-    fn clamp_offset(&mut self) {
-        let len = self.ranked.len();
-        if len <= VISIBLE {
-            self.offset = 0;
-            return;
-        }
-        if self.selected < self.offset {
-            self.offset = self.selected;
-        }
-        if self.selected >= self.offset + VISIBLE {
-            self.offset = self.selected + 1 - VISIBLE;
-        }
-        self.offset = self.offset.min(len - VISIBLE);
+        self.offset = scroll_offset(self.selected, self.ranked.len());
     }
 
     fn move_selection(&mut self, delta: isize) {
@@ -241,7 +226,15 @@ impl AppState {
         }
         let len = len as isize;
         self.selected = (self.selected as isize + delta).rem_euclid(len) as usize;
-        self.clamp_offset();
+        self.offset = scroll_offset(self.selected, self.ranked.len());
+    }
+
+    fn select(&mut self, index: usize) {
+        if self.ranked.is_empty() {
+            return;
+        }
+        self.selected = index.min(self.ranked.len() - 1);
+        self.offset = scroll_offset(self.selected, self.ranked.len());
     }
 
     fn set_mode(&mut self, mode: Mode) {
@@ -324,12 +317,106 @@ impl AppState {
         }
     }
 
+    /// Map rofi's line-editing keys onto the query. `TextEdit` is the source of
+    /// truth for the field, so mutating it here and reranking is enough.
+    fn clear_query(&mut self) {
+        if self.query.text.is_empty() {
+            return;
+        }
+        self.query.replace_text("");
+        self.on_query_changed();
+    }
+
+    fn delete_to_start(&mut self) {
+        let (anchor, focus) = self.query.range();
+        if anchor != focus {
+            self.replace_query_range(anchor, focus);
+        } else {
+            self.replace_query_range(0, focus);
+        }
+    }
+
+    fn delete_to_end(&mut self) {
+        let (anchor, focus) = self.query.range();
+        if anchor != focus {
+            self.replace_query_range(anchor, focus);
+        } else {
+            self.replace_query_range(focus, self.query.text.len());
+        }
+    }
+
+    fn delete_backward(&mut self) {
+        let (anchor, focus) = self.query.range();
+        if anchor != focus {
+            self.replace_query_range(anchor, focus);
+        } else if focus > 0 {
+            let start = self.query.text[..focus]
+                .chars()
+                .next_back()
+                .map_or(focus, |ch| focus - ch.len_utf8());
+            self.replace_query_range(start, focus);
+        }
+    }
+
+    fn delete_forward(&mut self) {
+        let (anchor, focus) = self.query.range();
+        if anchor != focus {
+            self.replace_query_range(anchor, focus);
+        } else {
+            let end = self.query.text[focus..]
+                .chars()
+                .next()
+                .map_or(focus, |ch| focus + ch.len_utf8());
+            self.replace_query_range(focus, end);
+        }
+    }
+
+    fn replace_query_range(&mut self, start: usize, end: usize) {
+        if start >= end {
+            return;
+        }
+        self.query.text.replace_range(start..end, "");
+        self.query.set_caret(start);
+        self.on_query_changed();
+    }
+
+    fn move_caret(&mut self, delta: isize) {
+        let focus = self.query.focus;
+        let to = if delta < 0 {
+            self.query.text[..focus]
+                .chars()
+                .next_back()
+                .map_or(focus, |ch| focus - ch.len_utf8())
+        } else {
+            self.query.text[focus..]
+                .chars()
+                .next()
+                .map_or(focus, |ch| focus + ch.len_utf8())
+        };
+        self.query.set_caret(to);
+    }
+
     #[cfg(test)]
     fn for_test(env: Env, mode: Mode, items: Vec<Item>) -> Self {
         let mut state = Self::empty(env, mode);
         state.items.insert(mode, items);
         state.rerank();
         state
+    }
+}
+
+/// Rofi's `scroll-method: 1`: the selected row walks down to the middle of the
+/// seven rows, then the list follows it; near the end the list stops at a full
+/// page so the selection moves to the bottom. A short list keeps a gap below.
+fn scroll_offset(selected: usize, total: usize) -> usize {
+    const MIDDLE: usize = (VISIBLE - 1) / 2;
+    if selected <= MIDDLE || total <= VISIBLE {
+        return 0;
+    }
+    if selected < total.saturating_sub(VISIBLE - MIDDLE) {
+        selected - MIDDLE
+    } else {
+        total - VISIBLE
     }
 }
 
@@ -379,6 +466,8 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
 }
 
 fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {
+    // Rofi has no scroll animation; land the list and scrollbar in this frame.
+    tx.instant();
     match &event.key {
         Key::Escape => {
             tx.close_window();
@@ -392,16 +481,88 @@ fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {
             state.move_selection(1);
             true
         }
+        // rofi's default row bindings and paging.
+        Key::Command('p') => {
+            state.move_selection(-1);
+            true
+        }
+        Key::Command('n') => {
+            state.move_selection(1);
+            true
+        }
+        Key::PageUp => {
+            state.move_selection(-(VISIBLE as isize));
+            true
+        }
+        Key::PageDown => {
+            state.move_selection(VISIBLE as isize);
+            true
+        }
+        Key::Home => {
+            state.select(0);
+            true
+        }
+        Key::End => {
+            state.select(state.ranked.len().saturating_sub(1));
+            true
+        }
         Key::Tab => {
             state.cycle_mode(if event.mods.shift { -1 } else { 1 });
             true
         }
-        Key::Enter => {
+        // rofi's kb-mode-next / kb-mode-previous on Shift+Right / Shift+Left.
+        Key::Right if event.mods.shift => {
+            state.cycle_mode(1);
+            true
+        }
+        Key::Left if event.mods.shift => {
+            state.cycle_mode(-1);
+            true
+        }
+        Key::Enter | Key::Command('j' | 'm') => {
             state.activate(state.selected, tx);
             true
         }
         Key::Command('g' | 'c' | '[') => {
             tx.close_window();
+            true
+        }
+        // rofi's line editing: Ctrl+A/E, B/F, K/U/W.
+        Key::Command('a') => {
+            state.query.set_caret(0);
+            true
+        }
+        Key::Command('e') => {
+            let end = state.query.text.len();
+            state.query.set_caret(end);
+            true
+        }
+        Key::Command('b') => {
+            state.move_caret(-1);
+            true
+        }
+        Key::Command('f') => {
+            state.move_caret(1);
+            true
+        }
+        Key::Command('k') => {
+            state.delete_to_end();
+            true
+        }
+        Key::Command('d') => {
+            state.delete_forward();
+            true
+        }
+        Key::Command('h') => {
+            state.delete_backward();
+            true
+        }
+        Key::Command('u') => {
+            state.delete_to_start();
+            true
+        }
+        Key::Command('w') => {
+            state.clear_query();
             true
         }
         _ => false,
@@ -444,23 +605,27 @@ fn tab_glyph(mode: Mode, ink: Color) -> El {
 }
 
 fn magnifier(ink: Color) -> El {
-    el().w(24.0)
-        .h(24.0)
-        .child(
-            el().absolute(3.0, 2.0)
-                .w(14.0)
-                .h(14.0)
-                .radius(7.0)
-                .border(2.0, ink),
+    // A ring plus a round-capped handle, the same shape rofi's theme draws.
+    let center = 10.0;
+    let radius = 6.0;
+    let points: Vec<[f32; 2]> = (0..32)
+        .map(|step| {
+            let angle = step as f32 / 32.0 * std::f32::consts::TAU;
+            [center + radius * angle.cos(), center + radius * angle.sin()]
+        })
+        .collect();
+    let diagonal = radius * std::f32::consts::FRAC_1_SQRT_2;
+    let shape = Shape::new()
+        .stroke_with(points, true, 2.0, LineCap::Round, ink)
+        .line(
+            [center + diagonal, center + diagonal],
+            [20.5, 20.5],
+            2.0,
+            LineCap::Round,
+            ink,
         )
-        .child(
-            el().absolute(14.0, 15.0)
-                .w(2.0)
-                .h(9.0)
-                .radius(1.0)
-                .fill(ink)
-                .rotate(0.785),
-        )
+        .view_box(24.0, 24.0);
+    canvas(shape).key("tab-apps-glyph").size(24.0, 24.0)
 }
 
 fn clipboard_glyph(size: f32, ink: Color) -> El {
@@ -660,26 +825,28 @@ fn scrollbar(state: &AppState, palette: &Palette) -> El {
         .radius(8.0)
         .fill(palette.base);
 
-    if total <= VISIBLE {
+    if total == 0 {
         return track;
     }
 
-    // rofi's handle: `track * visible / (total + visible)`.
+    // rofi's handle length, and a position that follows the selected row: the
+    // highlight is the state a launcher's scrollbar shows.
     let handle = (LIST_H * VISIBLE as f32 / (total + VISIBLE) as f32).max(8.0);
     let remaining = (LIST_H - handle).max(0.0);
-    let top = remaining * state.offset as f32 / (total - VISIBLE) as f32;
-    let bottom = (remaining - top).max(0.0);
+    let top = if total > 1 {
+        (remaining * state.selected as f32 / (total - 1) as f32).min(remaining)
+    } else {
+        0.0
+    };
 
-    track
-        .child(el().w_full().grow(top.max(0.001)))
-        .child(
-            el().key("scrollbar-handle")
-                .w(SCROLLBAR_W)
-                .h(handle)
-                .radius(8.0)
-                .fill(palette.blue),
-        )
-        .child(el().w_full().grow(bottom.max(0.001)))
+    track.child(
+        el().key("scrollbar-handle")
+            .absolute(0.0, top)
+            .w(SCROLLBAR_W)
+            .h(handle)
+            .radius(8.0)
+            .fill(palette.blue),
+    )
 }
 
 #[cfg(test)]

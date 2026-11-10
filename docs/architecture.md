@@ -201,12 +201,16 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 ## Icons
 
 - `Icon=` absolute path → use it.
-- Otherwise search the icon dirs for `{name}.png`, `{name}.svg` in
-  `32x32`, `48x48`, `64x64`, `128x128`, `256x256`, `512x512`, `scalable`, then the
-  root, then the `hicolor`/`Adwaita` `apps/` layout. Rune rasterizes SVG at the draw
-  size (the `svg` feature).
-- Cache path resolution per icon name; let Rune's `ImageCache` cache decoded pixels.
-  The UI keeps one `Image` handle per (path, display scale).
+- Otherwise follow GTK's theme lookup: the `gtk-icon-theme-name` from
+  `~/.config/gtk-3.0`/`gtk-4.0/settings.ini` (default `Adwaita`), that theme's
+  `Inherits` chain, then `hicolor`. Each theme's `Directories=` list is searched
+  with sizes nearest 32 px first (`32x32`, `48x48`, … `16x16`, `scalable`), so
+  legacy categories such as `16x16/legacy` resolve too. The quick path probes
+  `apps/` only; the full walk runs on a miss. Rune rasterizes SVG at the draw size
+  (the `svg` feature).
+- Path resolution caches the theme chain and each theme's directory list per
+  process; Rune's `ImageCache` caches decoded pixels. The UI keeps one `Image`
+  handle per (path, display scale).
 - Missing icon → an empty 32 px slot so app rows stay aligned; never fail the row.
   Run rows have no icon; clipboard rows draw a generic glyph.
 
@@ -236,11 +240,22 @@ renders only those. Geometry is the measured rofi layout at a 960×495 panel:
 | Run row | no icon; title at 15 px |
 | Scrollbar | 8 px at the right, base track, blue handle, rofi's length formula |
 
-Keys are handled by the focused text input first: `Up`/`Down` wrap the selection,
-`Tab`/`Shift+Tab` cycle modes, `Enter` activates, `Escape` and `Ctrl+G`/`Ctrl+C`/
-`Ctrl+[` close. Wheel over the list moves the selection one row per event. A click
-activates the row; `focus_on_window_activation` and `on_focus(false)` close the
-window.
+The list follows rofi's `scroll-method: 1`: the selected row walks down to the
+middle of the seven rows, then the list follows it (`offset = selected - 3`); near
+the end the list stops at a full seven-row page, and a short list keeps the gap
+below. The scrollbar handle is positioned absolutely inside its track and tracks
+the selected row, as rofi's does; it is not the viewport offset.
+
+Keys are handled by the focused text input first: `Up`/`Down` and `Ctrl+P`/`Ctrl+N`
+wrap the selection, `PageUp`/`PageDown` move seven rows, `Home`/`End` jump to the
+ends, `Tab`/`Shift+Tab` and `Shift+Right`/`Shift+Left` cycle modes, `Enter` (also
+`Ctrl+J`/`Ctrl+M`) activates, and `Escape`/`Ctrl+G`/`Ctrl+C`/`Ctrl+[` close.
+`Ctrl+A`/`Ctrl+E` move the caret to the ends, `Ctrl+B`/`Ctrl+F` one character,
+`Ctrl+W` clears the line, `Ctrl+U`/`Ctrl+K` delete to the start/end, and
+`Ctrl+H`/`Ctrl+D` delete one character backward/forward.
+Wheel over the list moves the selection one row per event, with rofi's direction
+(`reverse: false`: wheel down moves down). A click activates the row;
+`focus_on_window_activation` and `on_focus(false)` close the window.
 
 Match underlines come from `Ranked::positions`, which are **character** indices into
 the title; the view maps them to UTF-8 byte ranges and merges adjacent characters

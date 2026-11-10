@@ -52,8 +52,8 @@
 - **M1 core complete** (`b27561f` providers, ranking/state integrated next commit):
   - Providers: `.desktop` discovery (XDG precedence, Hidden/NoDisplay,
     OnlyShowIn/NotShowIn, TryExec, locale fallback, field codes, `Terminal=true`,
-    `Path=`), `$PATH` scan, `cliphist list`; icons resolve for all 94 apps on the
-    owner's machine.
+    `Path=`), `$PATH` scan, `cliphist list`; icons resolve for 93 of 94 apps on the
+    owner's machine (`hwloc` ships none).
   - Ranking: nucleo smart case/normalization, composite
     `match + 0.15 * top * normalize(frecency)`, title tie-break case-insensitive,
     clipboard order preserved; underline positions are character indices.
@@ -89,6 +89,28 @@
   - The app sits at y 292 on 1920×1080, not rofi's 293: 495 is odd and Sway
     floors a toplevel's centred position while layer-shell rounds up. Same
     centred position, 1 px difference.
+- **First real-use polish** (2026-11-11), checked against the owner's rofi 2.0 in a
+  private nested Sway:
+  - Scrolling now matches `scroll-method: 1`: the selection stays centered once it
+    passes the fourth row, the list follows, and the end clamps to a full page.
+    Short lists keep rofi's gap below.
+  - The scrollbar was a row, so its handle was positioned on the horizontal axis
+    and never moved down; it is now an absolutely positioned handle that tracks the
+    selected row with rofi's length formula. The left drift is gone.
+  - Keys: `Ctrl+N`/`Ctrl+P` rows, `Home`/`End`, `PageUp`/`PageDown`,
+    `Shift+Right`/`Shift+Left` modes, `Ctrl+A`/`E`/`B`/`F` caret, and
+    `Ctrl+W` (clear), `Ctrl+U` (delete to start), `Ctrl+K` (delete to end).
+  - The search-tab magnifier is drawn as a ring plus a round-capped handle instead
+    of a ring with a detached rotated bar.
+  - Icon lookup now follows GTK's theme chain (the configured theme, its
+    `Inherits`, `AdwaitaLegacy`, `hicolor`) and searches every declared size and
+    category. All apps get an icon except `hwloc` (`lstopo`), which ships none and
+    also has none in rofi.
+  - 9 new tests: **75 total** (23 binary/UI + 3 unit + 19 provider + 30
+    ranking/state).
+  - Startup re-measured after caching the theme chain and directory lists:
+    apps **median 300 ms, p95 330 ms** over 20 runs; still inside the 400 ms p95
+    target. The first two runs were 140–180 ms (warm page cache).
 
 ## In progress
 

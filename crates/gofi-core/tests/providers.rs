@@ -587,3 +587,64 @@ fn icons_fall_back_to_root_theme_and_system_dirs() {
     write_file(&system, "png");
     assert_eq!(resolve_icon("system", &env), Some(system));
 }
+
+#[test]
+fn icons_follow_the_gtk_theme_and_its_inherited_legacy_dirs() {
+    let temp = TempDir::new().unwrap();
+    let env = env_for(temp.path());
+    let icons = env.data_home.join("icons");
+
+    write_file(
+        &icons.join("MyTheme/index.theme"),
+        "[Icon Theme]\nInherits=MyLegacy,hicolor\nDirectories=32x32/apps\n",
+    );
+    write_file(
+        &icons.join("MyLegacy/index.theme"),
+        "[Icon Theme]\nDirectories=16x16/legacy\n",
+    );
+    let legacy = icons.join("MyLegacy/16x16/legacy/legacy-only.png");
+    write_file(&legacy, "png");
+    write_file(
+        &env.config_home.join("gtk-3.0/settings.ini"),
+        "[Settings]\ngtk-icon-theme-name = MyTheme\n",
+    );
+
+    assert_eq!(resolve_icon("legacy-only", &env), Some(legacy));
+}
+
+#[test]
+fn icons_prefer_the_selected_theme_over_a_better_hicolor_size() {
+    let temp = TempDir::new().unwrap();
+    let env = env_for(temp.path());
+    let icons = env.data_home.join("icons");
+
+    let selected = icons.join("MyTheme/48x48/apps/shared.png");
+    write_file(&selected, "png");
+    write_file(
+        &icons.join("MyTheme/index.theme"),
+        "[Icon Theme]\nDirectories=48x48/apps\n",
+    );
+    write_file(&icons.join("hicolor/32x32/apps/shared.png"), "png");
+    write_file(
+        &env.config_home.join("gtk-4.0/settings.ini"),
+        "[Settings]\ngtk-icon-theme-name=MyTheme\n",
+    );
+
+    assert_eq!(resolve_icon("shared", &env), Some(selected));
+}
+
+#[test]
+fn icons_fall_back_to_adwaita_legacy_without_gtk_settings() {
+    let temp = TempDir::new().unwrap();
+    let env = env_for(temp.path());
+    let icons = env.data_home.join("icons");
+
+    write_file(
+        &icons.join("Adwaita/index.theme"),
+        "[Icon Theme]\nInherits=AdwaitaLegacy,hicolor\nDirectories=16x16/legacy\n",
+    );
+    let legacy = icons.join("AdwaitaLegacy/16x16/legacy/stock-only.png");
+    write_file(&legacy, "png");
+
+    assert_eq!(resolve_icon("stock-only", &env), Some(legacy));
+}

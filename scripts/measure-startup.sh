@@ -84,7 +84,7 @@ for i in $(seq 1 "$RUNS"); do
 
   READY=""
   for _ in $(seq 1 500); do
-    READY=$(find "$READY_DIR" -maxdepth 1 -type f -print -quit)
+    READY=$(find "$READY_DIR" -maxdepth 1 -type f -name 'gofi.*' ! -name '*.tmp' -print -quit)
     [ -n "$READY" ] && break
     sleep 0.01
   done

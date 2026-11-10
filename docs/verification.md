@@ -73,12 +73,37 @@ bug is only visible in a real window, add it to the e2e suite.
 - The UI uses the embedded JetBrains Mono Regular/Medium. With the system family
   lookup the apps p95 was 430 ms; embedding removed the fontconfig cost.
 
+## Polish result (2026-11-11)
+
+- `just check` green: 75 tests (23 binary/UI + 3 unit + 19 provider + 30
+  ranking/state).
+- Rofi 2.0 was run in a private nested Sway (isolated `XDG_RUNTIME_DIR`,
+  `XDG_DATA_HOME`, `XDG_CONFIG_HOME`, `XDG_STATE_HOME`, no live socket) to settle
+  the target behavior: `scroll-method: 1` keeps the selected row in the middle of
+  the seven-row window, the scrollbar tracks the selection, the handle length is
+  `track * 7 / (total + 7)`, and a short list keeps a gap below.
+- New headless tests cover: `scroll_offset` against rofi's algorithm; scrollbar
+  height, position, right edge and bottom stop; the short-list handle and gap;
+  Ctrl+N/P; Home/End/PageUp/PageDown; Ctrl+W/U/K with the caret mid-line;
+  Shift+Right/Left mode cycling; and the search glyph.
+- Visual proof under nested Sway: `target/evidence/polish-e2e/typed.png` and the
+  private probe in `/tmp/opencode/gofi-probe/` (not committed): complete
+  magnifier, centered selection after seven and twenty-seven Downs, a scrollbar
+  that moves down without drifting left, Ctrl+N, Ctrl+W and Ctrl+U.
+- Icons: the resolver follows GTK's theme chain and legacy categories. `--dump`
+  now resolves 93 of 94 apps; `hardware locality lstopo` (`Icon=hwloc`) has no
+  installed icon and rofi shows none either.
+- Startup with the cached theme lookups: apps median **300 ms**, p95 **330 ms**
+  (20 runs, nested pixman); first two runs 140–180 ms.
+- The two e2e scripts still pass (`target/evidence/polish-e2e/`,
+  `target/evidence/polish-actions/`).
+
 ## M1 result (2026-11-11)
 
 - `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +
   30 ranking/state).
-- Real CLI on the owner's machine: 94 apps (all icons resolved), 500+ PATH
-  executables, 750 cliphist entries.
+- Real CLI on the owner's machine: 94 apps (93 icons; `hwloc` ships none),
+  500+ PATH executables, 750 cliphist entries.
 - `--dump` end-to-end medians over 9 runs: apps **30 ms**, run **14 ms**, clipboard
   **15 ms** (process start, provider scan, ranking, JSON).
 - Ranking a synthetic 5,000-item corpus: **0.8 ms** per pass including underline

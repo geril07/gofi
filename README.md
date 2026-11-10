@@ -43,6 +43,20 @@ for_window [app_id="gofi"] floating enable, border none, move position center, r
 `just check` runs fmt, clippy and the tests; `just e2e` and `just e2e-launch` run
 the nested-headless-Sway checks; `just measure` records startup.
 
+## Keys
+
+| Keys | Action |
+|---|---|
+| `Up` / `Down`, `Ctrl+P` / `Ctrl+N` | move the selection (wraps) |
+| `PageUp` / `PageDown`, `Home` / `End` | jump a page / to the ends |
+| `Tab` / `Shift+Tab`, `Shift+Right` / `Shift+Left` | switch mode |
+| `Enter` | launch or copy |
+| `Escape`, `Ctrl+G`, `Ctrl+C`, `Ctrl+[` | close |
+| `Ctrl+A` / `Ctrl+E`, `Ctrl+B` / `Ctrl+F` | move the caret |
+| `Ctrl+W` / `Ctrl+U` / `Ctrl+K` | clear / delete to start / delete to end |
+| `Ctrl+H` / `Ctrl+D` | delete one character backward / forward |
+| Wheel, click | move the selection, activate a row |
+
 ## Scope (MVP)
 
 - `gofi` — application launcher (XDG `.desktop` entries, icons).
