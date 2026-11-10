@@ -49,27 +49,32 @@
   `resize set 50 ppt 495 px` matches both exactly. Verified at both outputs.
 - Wrote the initial docs: orchestration, goals, architecture, verification, ADRs
   0001–0008, this status, and the Rune assessment.
+- **M1 core complete** (`b27561f` providers, ranking/state integrated next commit):
+  - Providers: `.desktop` discovery (XDG precedence, Hidden/NoDisplay,
+    OnlyShowIn/NotShowIn, TryExec, locale fallback, field codes, `Terminal=true`,
+    `Path=`), `$PATH` scan, `cliphist list`; icons resolve for all 94 apps on the
+    owner's machine.
+  - Ranking: nucleo smart case/normalization, composite
+    `match + 0.15 * top * normalize(frecency)`, title tie-break case-insensitive,
+    clipboard order preserved; underline positions are character indices.
+  - State: JSON v1, 14-day half-life, atomic write with a sidecar `flock`,
+    2,000-entry cap, no clipboard persistence.
+  - 49 behavior tests (3 unit + 16 provider + 30 ranking/state).
+  - Real CLI: 94 apps, 500+ executables, 750 cliphist entries.
+  - End-to-end `--dump` (process start + scan + rank): apps **30 ms**,
+    run **14 ms**, clipboard **15 ms** median on the owner's machine. Ranking a
+    synthetic 5,000-item corpus: **0.8 ms** per pass including positions.
 
 ## In progress
 
-M1 core, two workers in isolated worktrees:
-
-- **Worker A** — providers + icons: `.worktrees/m1-providers`,
-  [task 0001](tasks/0001-m1-providers.md).
-- **Worker B** — ranking + frecency + state: `.worktrees/m1-ranking`,
-  [task 0002](tasks/0002-m1-ranking.md).
-
-Both use `opencode-go/deepseek-v4.1-flash`; no model fallback. The orchestrator
-will integrate, wire the final `--dump`, and run the full checks.
+M1 is complete and integrated. **M2 — the Rune UI — is next.**
 
 ## Next (ordered)
 
-1. **Scaffold the Cargo project** and implement the headless core (`--dump`) before
-   the UI: desktop parser, PATH scan, cliphist provider, ranking, frecency, state.
-2. **First UI slice** on top of the core: 50% width × 495 height window, mode tabs, icons, match
+1. **First UI slice** on top of the core: 50% width × 495 height window, mode tabs, icons, match
    underlines, selection, launch/copy. The surface spike proved the
    window/focus/text path; do not rebuild it blindly.
-3. **Sway integration + measurements** on the real app: window rule, keybinds,
+2. **Sway integration + measurements** on the real app: window rule, keybinds,
    cold start with providers, clipboard e2e, daily-use checklist.
 
 ## Blockers
@@ -78,8 +83,9 @@ None hard.
 
 ## Risks
 
-- Real-app cold start (desktop parse + PATH scan + cliphist) is unmeasured; the
-  minimal app is 90 ms median, so the budget is likely safe.
+- Real-app cold start with providers is measured at 30 ms (apps) / 15 ms
+  (clipboard) in `--dump`, so the 90 ms UI baseline leaves headroom; the combined
+  UI path still needs a real measurement.
 - IME/composed text input on Wayland needs a real test.
 - Clipboard previews are sensitive; never log them or persist them. The provider
   must stream decode → wl-copy.

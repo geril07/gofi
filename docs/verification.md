@@ -53,7 +53,21 @@ maintenance and catches nothing.
 Every bug fix gets a regression test at the lowest layer that reproduces it. If the
 bug is only visible in a real window, add it to the e2e suite.
 
-## Commands (planned)
+## M1 result (2026-11-11)
+
+- `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +
+  30 ranking/state).
+- Real CLI on the owner's machine: 94 apps (all icons resolved), 500+ PATH
+  executables, 750 cliphist entries.
+- `--dump` end-to-end medians over 9 runs: apps **30 ms**, run **14 ms**, clipboard
+  **15 ms** (process start, provider scan, ranking, JSON).
+- Ranking a synthetic 5,000-item corpus: **0.8 ms** per pass including underline
+  positions.
+- Frecency verified through the CLI with a temp `XDG_STATE_HOME`: an app with five
+  uses rose to the top of the empty-query list; a corrupt file and an unknown
+  version produced a warning and an empty state, not a failure.
+
+## Commands
 
 `just` is installed. The current recipes:
 
@@ -68,7 +82,6 @@ just dump clipboard ""
 
 Planned for M2/M3: `just run`, `just snap`, `just e2e`, `just measure`.
 
-Until the project is scaffolded, use the equivalent `cargo` commands directly.
 The generic nested-Sway smoke test already exists:
 
 ```sh

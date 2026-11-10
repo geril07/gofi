@@ -69,6 +69,9 @@ struct DumpItem {
     score: i64,
     positions: Vec<u32>,
     icon: Option<String>,
+    /// Launch argv; `null` for clipboard items. Useful for headless checks.
+    argv: Option<Vec<String>>,
+    cwd: Option<String>,
 }
 
 fn main() -> ExitCode {
@@ -123,6 +126,17 @@ fn main() -> ExitCode {
         .take(args.limit)
         .map(|ranked| {
             let item = &loaded.items[ranked.index];
+            let (argv, cwd) = match &item.action {
+                gofi_core::Action::Launch { argv, cwd } => (
+                    Some(
+                        argv.iter()
+                            .map(|arg| arg.to_string_lossy().into_owned())
+                            .collect(),
+                    ),
+                    cwd.as_ref().map(|p| p.to_string_lossy().into_owned()),
+                ),
+                gofi_core::Action::CopyClipboard { .. } => (None, None),
+            };
             DumpItem {
                 id: item.id.0.clone(),
                 title: item.title.clone(),
@@ -131,6 +145,8 @@ fn main() -> ExitCode {
                 score: ranked.score,
                 positions: ranked.positions.clone(),
                 icon: item.icon.as_ref().map(|p| p.to_string_lossy().into_owned()),
+                argv,
+                cwd,
             }
         })
         .collect();
