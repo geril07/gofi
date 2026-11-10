@@ -107,9 +107,12 @@ Owner-provided screenshots are in `references/screenshots/` (gitignored):
 - `apps-discord.png` — apps mode, empty query.
 - `apps-goo.png` — apps mode, query `goo`; matched characters underlined.
 - `run-power.png` — run mode, query `power`; matched characters underlined.
+- `rofi-real-1920.png` — real rofi under the owner's config, 1920×1080 @ 1.
+- `rofi-real-2560.png` — real rofi under the owner's config, 2560×1600 @ 1.5.
 
 Measured from the PNGs (the images are ~976×521; the panel itself is **960×495**
-physical pixels, almost certainly the 1920×1080 output at 1× scale):
+physical pixels on the 1920×1080 output at 1× scale; confirmed against the real
+config below):
 
 | Element | Measurement |
 |---|---|
@@ -122,7 +125,7 @@ physical pixels, almost certainly the 1920×1080 output at 1× scale):
 | Scrollbar handle | 8×197, blue, at the right edge |
 | Search input | top-left, ~20 px inset, no icon inside; placeholder `Search...` |
 | Icons | 32×32, apps mode only |
-| Font | JetBrains Mono 16 (the screenshots are 1×; the 1.5× laptop output needs a check) |
+| Font | JetBrains Mono 16 (the screenshots are 1×) |
 
 The tabs are rofi's **mode switcher**, not decorative: magnifier = `drun`,
 `</>` = `run`, folder = `filebrowser`. The folder/filebrowser tab is not needed.
@@ -139,3 +142,21 @@ The selected row's text is dark (mantle) on blue; unselected text is `#cad3f5`.
 Unselected tab buttons use base `#24273a`; the selected tab is blue. The panel
 corners look rounded; Swayfx's global `corner_radius 6` may be responsible. Verify
 whether the app or the compositor rounds them before drawing an extra radius.
+
+## Real-config verification (2026-11-10)
+
+The owner's actual Sway config was copied to a temp dir, the `startup.conf` include
+was removed (so no apps launch), and a `HEADLESS-1` output was appended. Nested
+headless Sway then ran the real `rofi -show drun` with the real rofi config:
+
+| Output | Rofi panel | Notes |
+|---|---|---|
+| 1920×1080 @ 1 | 960×495 at 480,293 | 50% width; content height 495; centred |
+| 2560×1600 @ 1.5 | 1279×742 physical at 641,429 | logical 853×495; same 50%/495 rule |
+
+Rofi is a **layer-shell** surface: it does not appear in `swaymsg -t get_tree`.
+The geometry is therefore owned by rofi/the compositor, not by a Sway window rule.
+gofi is a toplevel; the rule
+`resize set 50 ppt 495 px` reproduces the same geometry (verified at both outputs).
+The panel width is **50% of the output's logical width**, not a fixed 960; the
+height is **495 logical px**, content-driven by 7 rows.

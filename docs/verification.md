@@ -113,10 +113,9 @@ RT=/tmp/opencode/gofi-e2e
 rm -rf "$RT"; mkdir -p "$RT"; chmod 700 "$RT"
 
 cat > "$RT/config" <<'EOF'
-output HEADLESS-1 resolution 1280x800
+output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="gofi"] floating enable, border none, move position center
-for_window [app_id="gofi"] resize set 960 495
+for_window [app_id="gofi"] floating enable, border none, move position center, resize set 50 ppt 495 px
 EOF
 
 env -u SWAYSOCK -u I3SOCK \
@@ -182,6 +181,9 @@ This was found during the M0 surface spike (2026-11-10). The launcher surface
 spike verified `app_id="gofi"`, the Sway float/centre rule, text input, Escape and
 focus-loss close with a live virtual keyboard.
 
+The script asserts the target geometry: 960×495 at 480,293 on a 1920×1080 output.
+That is 50% width × 495 logical height, centred.
+
 Notes:
 
 - `swaymsg -s <socket>` is required; `SWAYSOCK` may still point at the live session.
@@ -193,6 +195,31 @@ Notes:
 - `grim` needs `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` of the nested compositor.
 - Keep each test's runtime dir unique; remove it afterwards.
 - Evidence: `target/evidence/<task>/` (logs, tree JSON, screenshots, timings).
+
+## Real-config measurement (rofi)
+
+To check a size/position claim against the owner's actual config, copy
+`~/.config/sway` to a temp dir, remove `include ./startup.conf` (so no apps start),
+append a headless output, and run nested Sway with that config:
+
+```sh
+cp -a ~/.config/sway "$RT/sway"
+sed -i '/include .\/startup.conf/d' "$RT/sway/config"
+printf '\noutput HEADLESS-1 resolution 1920x1080 scale 1\n' >> "$RT/sway/config"
+```
+
+Then launch the real `rofi -show drun` with `DISPLAY` unset and the nested
+`WAYLAND_DISPLAY`, capture with `grim`, and measure the panel bbox (background
+`#1e2030`). Rofi is layer-shell, so it does not appear in `swaymsg -t get_tree`.
+
+Verified results:
+
+| Output | Rofi panel | Gofi toplevel with the rule |
+|---|---|---|
+| 1920×1080 @ 1 | 960×495 at 480,293 | 960×495 at 480,293 |
+| 2560×1600 @ 1.5 | 1279×742 physical at 641,429 | 853×495 logical at 427,286 (1280×742 physical) |
+
+Use 1920×1080 for the normal e2e; use 2560×1600 @ 1.5 when checking scale.
 
 ## Clipboard e2e (planned)
 

@@ -84,8 +84,10 @@ Match the current rofi theme closely enough that the switch is invisible:
 - JetBrains Mono 16 (Rune may fall back to its bundled font if the system font is
   unavailable; do not bundle the font unless licensing is clear).
 - 32 px icons, 7 visible rows, 48 px row height, 57 px pitch, 8 px row radius.
-- Centred, borderless, no titlebar; **960×495 logical** (measured from the owner's
-  screenshots; verify on the 1.5× laptop output).
+- Centred, borderless, no titlebar; **50% of the output width × 495 logical px
+  height**. On the 1920×1080 output that is 960×495; on the 2560×1600 @ 1.5 laptop
+  output it is 853×495 logical (1279×742 physical). Verified against the real rofi
+  under the owner's config in nested Sway.
 - Top bar: search input on the left, three mode tabs (100×59, 8 px radius, 21 px
   gap) on the right. Selected tab is blue; unselected tabs are base.
 - Matched query characters are underlined in both selected and unselected rows.
@@ -121,8 +123,9 @@ choosing.
 ### Sway integration
 
 - `rune::set_app_id("gofi")` so window rules match `app_id="gofi"`.
-- Window rule: floating, borderless, centred, 960×495; does not affect other
-  windows.
+- Window rule: floating, borderless, centred,
+  `resize set 50 ppt 495 px`; does not affect other windows. This exactly matches
+  rofi's geometry on both the 1920×1080 and 2560×1600 @ 1.5 outputs.
 - Keybinds replacing the rofi ones only after the daily-use checklist passes:
   - `Mod+Return` → `gofi`
   - `Mod+Shift+Return` → `gofi run`
@@ -201,15 +204,10 @@ non-app provider and validates that boundary.
 
 ## Open questions for the owner
 
-1. **Tabs.** Default plan: three tabs (Apps / Run / Clipboard), dropping rofi's
-   folder/filebrowser tab. The modes remain reachable by CLI/keybind. Confirm the
-   visual mode switcher is wanted, or keep two tabs and clipboard only on
-   `Mod+Ctrl+c`.
-2. **Clipboard source.** Default plan: use the existing `cliphist` database and
-   `cliphist decode | wl-copy`; no own history. Confirm, or say if you want gofi to
-   own the clipboard database.
-3. **Window size.** Screenshots measure 960×495 at 1×. Confirm that is the intended
-   size on the 1.5× laptop output, or whether it should scale/fit per output.
-4. **Name and license.** Keep `gofi` and MIT, or choose another name/license?
-5. **Window switcher.** Confirm it stays out of MVP even though the architecture
+1. **Name and license.** Keep `gofi` and MIT, or choose another name/license?
+2. **Window switcher.** Confirm it stays out of MVP even though the architecture
    leaves room for it.
+
+Resolved: three tabs (Apps / Run / Clipboard), `cliphist` as the clipboard source,
+and the 50% width × 495 logical height geometry (the Sway rule
+`resize set 50 ppt 495 px`) verified against the real config on both outputs.

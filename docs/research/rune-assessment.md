@@ -19,7 +19,7 @@
 | Sway rule | `for_window [title="Hello"] floating enable, move position center` centred the window |
 | Debug cold start | `ready_ms` 280–310 ms over 5 runs (process start → first `on_ready`; excludes presentation) |
 | Release cold start | `ready_ms` 240 ms first run, **90 ms median** over 9 warm runs (same caveat) |
-| Launcher surface | 700×480 spike (real target 960×495) borderless/transparent window, `app_id="gofi"`, Sway float/centre rule, text input, Escape, focus-loss close — all verified |
+| Launcher surface | 700×480 spike (real target 50% width × 495 height) borderless/transparent window, `app_id="gofi"`, Sway float/centre rule, text input, Escape, focus-loss close — all verified |
 | Text input | Typed keys reach a focused `text_input`; the first key can be lost while focus settles, so tests delay before typing |
 | Focus events | `on_focus(false)` also fires when the nested seat loses keyboard capability (`wtype` exits); keep a virtual keyboard alive in tests. Real physical-keyboard sessions are unaffected |
 

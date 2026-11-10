@@ -74,10 +74,9 @@ fail() {
 }
 
 cat > "$RT/config" <<EOF
-output HEADLESS-1 resolution 1280x800
+output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="$APP_ID"] floating enable, border none, move position center
-for_window [app_id="$APP_ID"] resize set 960 495
+for_window [app_id="$APP_ID"] floating enable, border none, move position center, resize set 50 ppt 495 px
 EOF
 
 # The nested compositor. No live-session variables survive.
@@ -135,6 +134,11 @@ READY=$(find "$RT/ready" -maxdepth 1 -type f -print -quit || true)
 FOCUSED=$(nested swaymsg -s "$SOCK" -t get_tree \
   | jq -r --arg id "$APP_ID" '.. | objects | select(.app_id? == $id) | .focused' | head -1)
 [ "$FOCUSED" = "true" ] || fail "window app_id=$APP_ID is not focused"
+
+read -r X Y W H < <(nested swaymsg -s "$SOCK" -t get_tree \
+  | jq -r --arg id "$APP_ID" '.. | objects | select(.app_id? == $id) | "\(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | head -1)
+[ "$W" = "960" ] && [ "$H" = "495" ] || fail "expected 960x495, got ${W}x${H}"
+[ "$X" = "480" ] && [ "$Y" = "293" ] || fail "expected 480,293, got ${X},${Y}"
 
 nested grim "$EVIDENCE/opened.png"
 

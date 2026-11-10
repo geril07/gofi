@@ -31,8 +31,9 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
 - `WindowOptions::launcher_panel()` (hidden, borderless, transparent, non-resizable)
   or an equivalent explicit `WindowOptions` on Linux.
 - Sway rule:
-  `for_window [app_id="gofi"] floating enable, border none, move position center`
-  plus `resize set 960 495` (the screenshot target; verify on the 1.5× output).
+  `for_window [app_id="gofi"] floating enable, border none, move position center, resize set 50 ppt 495 px`.
+  50% width and 495 logical height match rofi on both the 1920×1080 and
+  2560×1600 @ 1.5 outputs.
 - Close on focus loss (`App::on_focus`), reopen on the next keybind.
 - Do not use `App::overlay` for the launcher until Rune can grant immediate keyboard
   focus to a layer-shell surface.
@@ -40,8 +41,8 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
 ## Verification (2026-11-10)
 
 A throwaway Rune app with `set_app_id("gofi")` and a 700×480 borderless transparent
-window (the spike size; the real target is 960×495, measured from the owner's
-screenshots) was run under nested headless Sway:
+window (the spike size; the real target is 50% width × 495 height, measured from
+the owner's config and screenshots) was run under nested headless Sway:
 
 - Sway saw `app_id="gofi"`, `focused=true`, rect `290,160 700×480` (centred).
 - Typing reached a focused `text_input`; `Escape` closed the window.
@@ -49,6 +50,17 @@ screenshots) was run under nested headless Sway:
 - `on_focus(false)` also fires when the nested seat loses keyboard capability because
   `wtype` exits; that is a harness artifact, not a real focus loss. Keep a virtual
   keyboard alive in tests (see `docs/verification.md`).
+
+Real-config check (2026-11-10): the owner's actual Sway config (startup includes
+removed) was run in nested headless Sway with the real rofi config.
+
+| Output | Rofi panel | Gofi toplevel with the rule |
+|---|---|---|
+| 1920×1080 @ 1 | 960×495 at 480,293 (layer-shell, not in `get_tree`) | 960×495 at 480,293 |
+| 2560×1600 @ 1.5 | 1279×742 physical at 641,429 (logical 853×495) | 853×495 logical at 427,286 (physical 1280×742) |
+
+The geometry matches exactly. Rofi is a layer-shell surface; gofi is a toplevel, so
+the compositor may animate it, but the size/position is the same.
 
 ## Consequences
 

@@ -42,6 +42,11 @@
   `cliphist decode | wl-copy`; no own history, no clipboard content in state/logs.
   ADR 0008. Verified the pipeline with a private DB in nested Sway:
   `store` → `list` → `decode` → `wl-copy` → `wl-paste` returned the test value.
+- Real-config geometry check: ran the owner's actual Sway config (startup include
+  removed) in nested Sway with the real rofi. Rofi is layer-shell, 50% width ×
+  495 logical height, centred: 960×495 at 480,293 on 1920×1080; 853×495 logical
+  (1279×742 physical) on 2560×1600 @ 1.5. The gofi rule
+  `resize set 50 ppt 495 px` matches both exactly. Verified at both outputs.
 - Wrote the initial docs: orchestration, goals, architecture, verification, ADRs
   0001–0008, this status, and the Rune assessment.
 
@@ -53,7 +58,7 @@ Nothing yet; M1 scaffolding is next.
 
 1. **Scaffold the Cargo project** and implement the headless core (`--dump`) before
    the UI: desktop parser, PATH scan, cliphist provider, ranking, frecency, state.
-2. **First UI slice** on top of the core: 960×495 window, mode tabs, icons, match
+2. **First UI slice** on top of the core: 50% width × 495 height window, mode tabs, icons, match
    underlines, selection, launch/copy. The surface spike proved the
    window/focus/text path; do not rebuild it blindly.
 3. **Sway integration + measurements** on the real app: window rule, keybinds,
@@ -76,12 +81,11 @@ None hard.
 
 ## Open questions for the owner
 
-1. Three tabs (Apps / Run / Clipboard) vs two tabs + clipboard only on
-   `Mod+Ctrl+c`. Default: three tabs, matching the screenshot layout.
-2. Clipboard source: existing `cliphist` vs gofi-owned history. Default: cliphist.
-3. Window size: 960×495 measured at 1×; confirm on the 1.5× laptop output.
-4. Name (`gofi`) and license (MIT?).
-5. Confirm the window switcher stays out of MVP.
+1. Name (`gofi`) and license (MIT?).
+2. Confirm the window switcher stays out of MVP.
+
+Resolved: three tabs (Apps / Run / Clipboard), `cliphist` as the clipboard source,
+and the 50% × 495 geometry verified against the real config.
 
 ## References
 
