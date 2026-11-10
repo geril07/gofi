@@ -61,10 +61,12 @@ bug is only visible in a real window, add it to the e2e suite.
   100×59 at 600,10; scrollbar 8×396 at 932,89), seven rows, three tabs, typing,
   Tab/Shift+Tab, arrow wrap and scroll window, wheel direction, empty corpus,
   clipboard order, underline byte spans with Unicode, and a failed launch notice.
-- Nested Sway: `scripts/e2e-sway.sh` PASS (focus, 960×495, typing, Escape);
+- Nested Sway: `scripts/e2e-sway.sh` PASS in apps and run modes (focus,
+  960×495, typing, Escape, and a second invocation closing the open launcher);
   `scripts/e2e-launch.sh` PASS (fake `.desktop` app launched and recorded;
   private cliphist entry copied, `wl-paste` returns it; no content in state or
-  logs). Screenshots: `target/evidence/m2-smoke3/`, `target/evidence/m2-actions2/`.
+  logs). Screenshots: `target/evidence/m2-toggle/`, `target/evidence/m2-run/`,
+  `target/evidence/m2-actions2/`.
 - Startup (`scripts/measure-startup.sh`, process start → first `on_ready`, nested
   pixman Sway): apps median 300 ms, p95 350 ms, max 380 ms over 20 runs; run
   230–250 ms; clipboard 190–280 ms. Compositor presentation is not included.

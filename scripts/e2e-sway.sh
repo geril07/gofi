@@ -177,7 +177,27 @@ if tree_has_app; then
   fail "window still present after Escape"
 fi
 
+# Single instance: a second invocation closes the open window.
+nested env RUNE_READY_DIR="$RT/ready2" XDG_STATE_HOME="$RT/state" \
+  "$BINARY" "${APP_ARGS[@]}" >"$EVIDENCE/app2.log" 2>&1 &
+APP_PID=$!
+for _ in $(seq 1 100); do
+  if tree_has_app; then break; fi
+  sleep 0.1
+done
+tree_has_app || fail "the relaunch did not open a window"
+
+nested env XDG_STATE_HOME="$RT/state" "$BINARY" "${APP_ARGS[@]}" \
+  >"$EVIDENCE/second.log" 2>&1 || fail "the second invocation exited nonzero"
+
+for _ in $(seq 1 100); do
+  if ! tree_has_app; then break; fi
+  sleep 0.1
+done
+tree_has_app && fail "the second invocation did not close the open launcher"
+
 echo "PASS: app_id=$APP_ID focused, window opened"
 [ -n "$QUERY" ] && echo "PASS: typed query and captured $EVIDENCE/typed.png"
 echo "PASS: Escape closed the window"
+echo "PASS: a second invocation closed the open launcher"
 echo "evidence: $EVIDENCE"
