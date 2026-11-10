@@ -53,6 +53,24 @@ maintenance and catches nothing.
 Every bug fix gets a regression test at the lowest layer that reproduces it. If the
 bug is only visible in a real window, add it to the e2e suite.
 
+## M2/M3 result (2026-11-11)
+
+- `just check` green: 66 tests (17 binary/UI + 3 unit + 16 provider + 30
+  ranking/state).
+- Headless Rune tests assert the window geometry (row 902×48 at 20,89; tab
+  100×59 at 600,10; scrollbar 8×396 at 932,89), seven rows, three tabs, typing,
+  Tab/Shift+Tab, arrow wrap and scroll window, wheel direction, empty corpus,
+  clipboard order, underline byte spans with Unicode, and a failed launch notice.
+- Nested Sway: `scripts/e2e-sway.sh` PASS (focus, 960×495, typing, Escape);
+  `scripts/e2e-launch.sh` PASS (fake `.desktop` app launched and recorded;
+  private cliphist entry copied, `wl-paste` returns it; no content in state or
+  logs). Screenshots: `target/evidence/m2-smoke3/`, `target/evidence/m2-actions2/`.
+- Startup (`scripts/measure-startup.sh`, process start → first `on_ready`, nested
+  pixman Sway): apps median 300 ms, p95 350 ms, max 380 ms over 20 runs; run
+  230–250 ms; clipboard 190–280 ms. Compositor presentation is not included.
+- The UI uses the embedded JetBrains Mono Regular/Medium. With the system family
+  lookup the apps p95 was 430 ms; embedding removed the fontconfig cost.
+
 ## M1 result (2026-11-11)
 
 - `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +
@@ -72,22 +90,29 @@ bug is only visible in a real window, add it to the e2e suite.
 `just` is installed. The current recipes:
 
 ```sh
-just check        # fmt --check, clippy -D warnings, test
+just check        # rune pin, fmt --check, clippy -D warnings, test
 just test         # cargo test --workspace
 just build        # cargo build --release -p gofi
+just run          # open the launcher in apps mode
+just run-mode run
 just dump apps code
 just dump run power
 just dump clipboard ""
+just e2e          # nested Sway: geometry, focus, typing, Escape
+just e2e-launch   # nested Sway: launch a .desktop app, copy cliphist
+just measure apps # startup, 20 runs
 ```
 
-Planned for M2/M3: `just run`, `just snap`, `just e2e`, `just measure`.
-
-The generic nested-Sway smoke test already exists:
+The generic nested-Sway smoke test:
 
 ```sh
-scripts/e2e-sway.sh --binary target/release/gofi --query code \
+scripts/e2e-sway.sh --binary target/release/gofi --query fire --mode apps \
   --evidence target/evidence/e2e
 ```
+
+It accepts y=292 or 293 on a 1920×1080 output: 495 is odd, so the centred y is
+292.5; Sway floors a toplevel to 292 while layer-shell rounds rofi up to 293.
+Both are the same centred position.
 
 ## Headless Rune
 

@@ -1,7 +1,7 @@
 # Status
 
-**Last updated:** 2026-11-10
-**Phase:** M0 complete → M1 — core model
+**Last updated:** 2026-11-11
+**Phase:** M3 complete → M4 — Sway integration and daily use
 
 ## Done
 
@@ -64,18 +64,44 @@
   - End-to-end `--dump` (process start + scan + rank): apps **30 ms**,
     run **14 ms**, clipboard **15 ms** median on the owner's machine. Ranking a
     synthetic 5,000-item corpus: **0.8 ms** per pass including positions.
+- **M2/M3 complete**: the Rune window and the actions.
+  - View: mantle panel, 20 px insets, search field, three 100×59 tabs, seven
+    48 px rows on a 57 px pitch, 32 px icons, 8 px scrollbar, match underlines.
+    The measured geometry matches rofi (panel 960×495, row 902×48, tabs 100×59).
+  - JetBrains Mono Regular/Medium are embedded (SIL OFL) so startup does not pay
+    a fontconfig lookup. Body text is 16 pt at 96 DPI = 21.33 px, matching the
+    owner's rofi.
+  - Keys: Up/Down wrap, Tab/Shift+Tab cycle modes, Enter activates, Escape and
+    Ctrl+G/Ctrl+C/Ctrl+[ close; wheel moves one row; row click activates; focus
+    loss closes. Mode switching clears the query and lazily loads that provider.
+  - Actions: detached launch, `cliphist decode | wl-copy`, frecency update and
+    save; failures stay in a notice row. Single instance by `flock`, second
+    keybind sends SIGTERM (ADR 0009).
+  - 17 binary/UI tests (headless Rune `Runtime` plus launch/instance with real
+    temp trees and fake executables), 49 core tests: **66 total**.
+  - E2E under nested headless Sway: `scripts/e2e-sway.sh` PASS (geometry, focus,
+    typing, Escape); `scripts/e2e-launch.sh` PASS (launch a fake `.desktop` app
+    and record frecency; copy a private cliphist entry and `wl-paste` returns it;
+    no clipboard content in state or logs).
+  - Cold start, process start → first `on_ready`, nested headless Sway, 20 runs:
+    apps **median 300 ms, p95 350 ms, max 380 ms**; run 230–250 ms; clipboard
+    190–280 ms. This excludes compositor presentation.
+  - The app sits at y 292 on 1920×1080, not rofi's 293: 495 is odd and Sway
+    floors a toplevel's centred position while layer-shell rounds up. Same
+    centred position, 1 px difference.
 
 ## In progress
 
-M1 is complete and integrated. **M2 — the Rune UI — is next.**
+Nothing. **M4 — Sway integration and daily use — is next.**
 
 ## Next (ordered)
 
-1. **First UI slice** on top of the core: 50% width × 495 height window, mode tabs, icons, match
-   underlines, selection, launch/copy. The surface spike proved the
-   window/focus/text path; do not rebuild it blindly.
-2. **Sway integration + measurements** on the real app: window rule, keybinds,
-   cold start with providers, clipboard e2e, daily-use checklist.
+1. **Sway integration**: the owner adds the window-rule snippet from the README
+   and, separately, decides whether to point the keybinds at gofi. No config was
+   changed by this project.
+2. **Daily-use checklist** for one week, keeping rofi as the fallback.
+3. **Polish from real use**: IME check, any ranking/look adjustments, then
+   review and independent verification.
 
 ## Blockers
 
@@ -83,23 +109,24 @@ None hard.
 
 ## Risks
 
-- Real-app cold start with providers is measured at 30 ms (apps) / 15 ms
-  (clipboard) in `--dump`, so the 90 ms UI baseline leaves headroom; the combined
-  UI path still needs a real measurement.
+- Cold start is measured under nested headless Sway with the pixman renderer.
+  A real GPU and Swayfx may differ; re-measure in the owner's session before
+  promising the 400 ms p95.
+- The icons provider resolves every icon eagerly at startup. It is inside the
+  budget now; if the app count grows, defer resolution to visible rows.
 - IME/composed text input on Wayland needs a real test.
 - Clipboard previews are sensitive; never log them or persist them. The provider
-  must stream decode → wl-copy.
-- Rune is pre-release; API churn is expected.
+  streams decode → wl-copy. E2E screenshots contain only synthetic test strings.
+- Rune is pre-release; API churn is expected. The revision is pinned and
+  `scripts/check-rune.sh` enforces it.
 - Layer-shell immediate keyboard focus is not available; the ordinary-window path is
-  the workaround (ADR 0003).
+  the workaround (ADR 0003). The window is 1 px above rofi's y on a 1080p output.
 
 ## Open questions for the owner
 
-1. Name (`gofi`) and license (MIT?).
-2. Confirm the window switcher stays out of MVP.
-
-Resolved: three tabs (Apps / Run / Clipboard), `cliphist` as the clipboard source,
-and the 50% × 495 geometry verified against the real config.
+None. Resolved: `gofi`, MIT; three tabs (Apps / Run / Clipboard); `cliphist` as
+the clipboard source; the 50% × 495 geometry; the window switcher stays out of
+MVP; no Sway config changes by this project.
 
 ## References
 

@@ -1,9 +1,12 @@
 default: check
 
-check: fmt clippy test
+check-rune:
+    scripts/check-rune.sh
+
+check: check-rune fmt clippy test
 
 fmt:
-    cargo fmt --all --check
+    cargo fmt --package gofi-core --package gofi --check
 
 clippy:
     cargo clippy --workspace --all-targets -- -D warnings
@@ -11,14 +14,29 @@ clippy:
 test:
     cargo test --workspace
 
-build:
+build: check-rune
     cargo build --release -p gofi
+
+# Open the launcher (apps mode).
+run:
+    cargo run -p gofi
+
+# Open one mode: apps, run or clipboard.
+run-mode mode:
+    cargo run -p gofi -- {{mode}}
 
 # just dump [mode] [query]
 dump mode="apps" query="":
     cargo run -q -p gofi -- --dump --mode {{mode}} --query "{{query}}"
 
-# Nested headless Sway smoke test. The Rune UI arrives in M2; until then this
-# needs a window-capable binary.
-e2e binary="target/release/gofi" query="":
-    scripts/e2e-sway.sh --binary {{binary}} --query "{{query}}"
+# Nested headless Sway: window geometry, focus, typing, Escape.
+e2e binary="target/release/gofi" query="fire" mode="apps":
+    scripts/e2e-sway.sh --binary {{binary}} --query "{{query}}" --mode "{{mode}}"
+
+# Nested headless Sway: launch a .desktop app, copy a cliphist entry.
+e2e-launch binary="target/release/gofi":
+    scripts/e2e-launch.sh --binary {{binary}}
+
+# Process start -> first on_ready under nested Sway.
+measure mode="apps" runs="20":
+    scripts/measure-startup.sh --binary target/release/gofi --mode {{mode}} --runs {{runs}}

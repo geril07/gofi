@@ -1,6 +1,9 @@
 [workspace]
 resolver = "3"
 members = ["crates/gofi-core", "crates/gofi"]
+# Rune and the worker worktrees have their own workspace roots; they are not
+# members of this one even though they live under the repository directory.
+exclude = ["references", ".worktrees"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,3 +17,6 @@ nucleo-matcher = "0.3"
 fs2 = "0.4"
 shell-words = "1"
 tempfile = "3"
+
+[profile.release]
+codegen-units = 16

@@ -16,6 +16,7 @@ set -euo pipefail
 BINARY=""
 APP_ID="gofi"
 QUERY=""
+MODE=""
 EVIDENCE="target/evidence/e2e"
 WINDOW_TIMEOUT_MS=10000
 
@@ -29,7 +30,8 @@ the temp dir.
 
 Usage:
   scripts/e2e-sway.sh --binary target/release/gofi [--query code]
-                       [--app-id gofi] [--evidence target/evidence/e2e]
+                       [--mode apps|run|clipboard] [--app-id gofi]
+                       [--evidence target/evidence/e2e]
 
 Exit codes: 0 pass, 1 check failed, 2 usage/setup error.
 EOF
@@ -40,6 +42,7 @@ while [ $# -gt 0 ]; do
     --binary) BINARY="${2:-}"; shift 2 ;;
     --app-id) APP_ID="${2:-}"; shift 2 ;;
     --query) QUERY="${2:-}"; shift 2 ;;
+    --mode) MODE="${2:-}"; shift 2 ;;
     --evidence) EVIDENCE="${2:-}"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -112,8 +115,11 @@ nested() {
 }
 
 # Start the app with a readiness file so cold start is recorded for free.
-mkdir -p "$RT/ready"
-nested env RUNE_READY_DIR="$RT/ready" "$BINARY" >"$EVIDENCE/app.log" 2>&1 &
+mkdir -p "$RT/ready" "$RT/state"
+APP_ARGS=()
+[ -n "$MODE" ] && APP_ARGS+=("$MODE")
+nested env RUNE_READY_DIR="$RT/ready" XDG_STATE_HOME="$RT/state" \
+  "$BINARY" "${APP_ARGS[@]}" >"$EVIDENCE/app.log" 2>&1 &
 APP_PID=$!
 
 tree_has_app() {
@@ -138,8 +144,16 @@ FOCUSED=$(nested swaymsg -s "$SOCK" -t get_tree \
 read -r X Y W H < <(nested swaymsg -s "$SOCK" -t get_tree \
   | jq -r --arg id "$APP_ID" '.. | objects | select(.app_id? == $id) | "\(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | head -1)
 [ "$W" = "960" ] && [ "$H" = "495" ] || fail "expected 960x495, got ${W}x${H}"
-[ "$X" = "480" ] && [ "$Y" = "293" ] || fail "expected 480,293, got ${X},${Y}"
+[ "$X" = "480" ] || fail "expected x 480, got $X"
+# 495 is odd, so the centred y is 292.5; Sway floors a toplevel to 292 while a
+# layer-shell rounds rofi up to 293. Both are the same centred position.
+case "$Y" in
+  292|293) ;;
+  *) fail "expected y 292 or 293, got $Y" ;;
+esac
 
+# Let the asynchronous icon decode finish before the evidence screenshot.
+sleep 0.6
 nested grim "$EVIDENCE/opened.png"
 
 # In nested headless Sway, wtype owns the only keyboard. When it exits, the seat

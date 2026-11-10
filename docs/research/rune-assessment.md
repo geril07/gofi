@@ -94,5 +94,10 @@ Source: `crates/rune/src/platform/layer_shell.rs`, `crates/rune/src/overlay/opti
 
 Proceed with Rune and the ordinary-window path. The framework is capable enough for
 the MVP: startup is fast, the window takes focus, text input works, and the Sway rule
-is exact. Remaining unknowns are IME/composed input and the real app's startup cost;
-neither blocks scaffolding the core.
+is exact.
+
+Verified with the real app (2026-11-11): the window renders the measured rofi layout
+under nested Sway, launch and clipboard actions pass e2e, and process start → first
+`on_ready` is apps median 300 ms / p95 350 ms (20 runs, nested pixman), within the
+400 ms target. Embedding JetBrains Mono removed a ~100 ms fontconfig cost. The
+remaining unknown is IME/composed input; it needs a real session test.

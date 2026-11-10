@@ -1,4 +1,24 @@
-//! gofi CLI. M1 exposes `--dump`; the Rune UI arrives in M2.
+//! gofi CLI and launcher.
+//!
+//! `gofi`, `gofi run`, `gofi clipboard` open the UI. `gofi --dump` prints the
+//! ranked items as JSON without opening a window.
+
+mod instance;
+mod launch;
+mod ui;
+
+#[cfg(test)]
+mod test_support {
+    use std::sync::{Mutex, MutexGuard};
+
+    /// Tests that `fork`/`exec` share this lock: a fork in one test can inherit
+    /// another test's write handle, and `exec` then fails with ETXTBSY.
+    pub static SPAWN: Mutex<()> = Mutex::new(());
+
+    pub fn spawn_guard() -> MutexGuard<'static, ()> {
+        SPAWN.lock().unwrap_or_else(|error| error.into_inner())
+    }
+}
 
 use std::process::ExitCode;
 
@@ -53,6 +73,10 @@ impl Args {
                         .parse()
                         .map_err(|_| format!("invalid limit: {value}"))?;
                 }
+                other if !other.starts_with('-') => {
+                    args.mode =
+                        Mode::parse(other).ok_or_else(|| format!("unknown mode: {other}"))?;
+                }
                 other => return Err(format!("unknown argument: {other}")),
             }
         }
@@ -92,11 +116,41 @@ fn main() -> ExitCode {
         println!("gofi {}", env!("CARGO_PKG_VERSION"));
         return ExitCode::SUCCESS;
     }
-    if !args.dump {
-        eprintln!("gofi: the UI is not implemented yet (M2). Use `gofi --dump`.");
-        return ExitCode::from(2);
+
+    if args.dump {
+        return dump(&args);
     }
 
+    match run_ui(args.mode) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("gofi: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run_ui(mode: Mode) -> Result<(), String> {
+    let env = Env::from_process();
+    match instance::claim(env.runtime_dir.as_deref()) {
+        instance::Claim::AlreadyRunning { pid } => {
+            // The second keybind press closes the open launcher.
+            if let Some(pid) = pid {
+                instance::terminate_if_gofi(pid);
+            }
+            Ok(())
+        }
+        instance::Claim::Owner(guard) => {
+            ui::set_config(ui::Config { env, mode });
+            rune::set_app_id("gofi");
+            ui::run();
+            drop(guard);
+            Ok(())
+        }
+    }
+}
+
+fn dump(args: &Args) -> ExitCode {
     let env = Env::from_process();
     let loaded = match args.mode {
         Mode::Apps => AppsProvider::new(env.clone()).load(),
@@ -106,7 +160,7 @@ fn main() -> ExitCode {
     let loaded = match loaded {
         Ok(loaded) => loaded,
         Err(error) => {
-            eprintln!("gofi: {}", error);
+            eprintln!("gofi: {error}");
             return ExitCode::FAILURE;
         }
     };
@@ -133,7 +187,7 @@ fn main() -> ExitCode {
                             .map(|arg| arg.to_string_lossy().into_owned())
                             .collect(),
                     ),
-                    cwd.as_ref().map(|p| p.to_string_lossy().into_owned()),
+                    cwd.as_ref().map(|path| path.to_string_lossy().into_owned()),
                 ),
                 gofi_core::Action::CopyClipboard { .. } => (None, None),
             };
@@ -144,7 +198,10 @@ fn main() -> ExitCode {
                 kind: item.kind,
                 score: ranked.score,
                 positions: ranked.positions.clone(),
-                icon: item.icon.as_ref().map(|p| p.to_string_lossy().into_owned()),
+                icon: item
+                    .icon
+                    .as_ref()
+                    .map(|path| path.to_string_lossy().into_owned()),
                 argv,
                 cwd,
             }
@@ -169,15 +226,17 @@ fn print_help() {
 gofi {version}
 
 Usage:
-  gofi [--dump] [--mode apps|run|clipboard] [--query TEXT] [--limit N]
+  gofi [apps|run|clipboard]
+  gofi --dump [--mode MODE] [--query TEXT] [--limit N]
 
-M1 exposes the headless dump; the Rune UI arrives in M2.
+With no arguments the launcher opens in apps mode. `run` searches $PATH and
+`clipboard` lists cliphist entries. The window closes on Escape or focus loss.
 
 Options:
   --dump              print ranked items as JSON and exit
   -m, --mode MODE     apps (default), run, or clipboard
-  -q, --query TEXT    fuzzy query (default: empty)
-  -n, --limit N       maximum results (default: 50)
+  -q, --query TEXT    fuzzy query for --dump (default: empty)
+  -n, --limit N       maximum results for --dump (default: 50)
   -h, --help          show this help
   -V, --version       show the version",
         version = env!("CARGO_PKG_VERSION")

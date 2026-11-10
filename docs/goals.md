@@ -176,7 +176,7 @@ non-app provider and validates that boundary.
   - [x] Prove Sway window rule (`app_id="gofi"`) floats/centres the window.
   - [x] Nested-Sway harness script with isolated env and evidence
         (`scripts/e2e-sway.sh`, verified with the surface spike).
-- [ ] **M1 — core model, no UI**
+- [x] **M1 — core model, no UI**
   - Desktop entry parser + discovery with tests.
   - PATH executable scan with tests.
   - Cliphist list/decode provider with tests (fake `cliphist`/`wl-copy`).
@@ -184,16 +184,17 @@ non-app provider and validates that boundary.
   - State load/save with corruption and atomicity tests.
   - `gofi --dump --mode apps|run|clipboard --query ...` JSON output for headless
     checks.
-- [ ] **M2 — Rune UI**
+- [x] **M2 — Rune UI**
   - Window, theme, input, list, icons, selection, scrolling.
   - Mode tabs (Apps / Run / Clipboard) and match underlines.
-  - Headless `--snap`/`--tree` scenes.
-  - Keyboard/mouse parity checks.
-- [ ] **M3 — launch + state**
+  - Headless `Runtime` tests for geometry, rows and keys (instead of `--snap`;
+    real Sway screenshots are the visual evidence).
+  - Keyboard/mouse/wheel parity checks in the headless tests and nested Sway.
+- [x] **M3 — launch + state**
   - `Exec` argv building, terminal wrapping, detached spawn.
   - Clipboard copy pipeline (`cliphist decode` → `wl-copy`).
   - Frecency update on launch; persistence.
-  - Failure reporting (log/notification) without blocking.
+  - Failure reporting in a notice row and on stderr, without blocking.
 - [ ] **M4 — Sway integration + performance**
   - Window rule and keybinds; focus-loss behavior.
   - Cold/warm measurements; daemon decision.
@@ -202,12 +203,12 @@ non-app provider and validates that boundary.
   - Config/CLI docs, install instructions, review + independent verification.
   - Optional: replace rofi in the owner's Sway config.
 
-## Open questions for the owner
+## Resolved
 
-1. **Name and license.** Keep `gofi` and MIT, or choose another name/license?
-2. **Window switcher.** Confirm it stays out of MVP even though the architecture
-   leaves room for it.
-
-Resolved: three tabs (Apps / Run / Clipboard), `cliphist` as the clipboard source,
-and the 50% width × 495 logical height geometry (the Sway rule
-`resize set 50 ppt 495 px`) verified against the real config on both outputs.
+- Name `gofi`, MIT license.
+- Three tabs: Apps / Run / Clipboard; folder/filebrowser dropped.
+- `cliphist` is the clipboard source; gofi stores no clipboard data.
+- The window is 50% width × 495 logical height, centred (the Sway rule
+  `resize set 50 ppt 495 px`), verified against the real config on both outputs.
+- The window switcher stays out of MVP.
+- No Sway config changes: the integration snippet is documented in the README.

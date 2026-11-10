@@ -1,4 +1,4 @@
-# Architecture (proposed)
+# Architecture
 
 This is the working shape, not a frozen spec. It exists so workers can make local
 decisions without inventing a different structure each time. Changes that affect the
@@ -37,26 +37,35 @@ formats. It renders `Item`s and emits an `Action`. That is the extensibility sea
 ## Modules
 
 ```
-src/
-  main.rs            CLI parsing, Rune app wiring, headless dump mode
-  app.rs             app state, view, key/mouse handling, selection
-  model.rs           Item, ItemId, Mode, Action, SourceKind
-  providers/
-    mod.rs           Provider trait + registry
-    apps.rs          XDG .desktop discovery and parsing
-    run.rs           $PATH executable discovery
-    clipboard.rs     cliphist list/decode, no persisted history
-  ranking/
-    mod.rs           nucleo pattern + composite sort
-    frecency.rs      decay math and normalization
-  store.rs           state.json load/save, atomic write, lock
-  launch.rs          Exec argv building, terminal wrapping, detached spawn
-  icons.rs           icon name → file path resolution
-  xdg.rs             XDG base dirs, desktop env, locale
-tests/
-  fixtures/          .desktop files, fake PATH trees, state files
-  *.rs               integration tests for providers/ranking/store/launch
+crates/
+  gofi-core/                 no UI dependency; fast headless tests
+    src/
+      lib.rs
+      model.rs               Item, ItemId, Mode, Action, Provider, Loaded
+      xdg.rs                 XDG dirs, desktop env, locale, test Env
+      providers/
+        apps.rs              XDG .desktop discovery and parsing
+        run.rs               $PATH executable discovery
+        clipboard.rs         cliphist list, no persisted history
+      ranking/
+        mod.rs               nucleo pattern + composite sort
+        frecency.rs          decay math and normalization
+      store.rs               state.json load/save, atomic write, lock
+      icons.rs               icon name → file path resolution
+    tests/
+      providers.rs
+      ranking_state.rs
+  gofi/                      the binary and the Rune window
+    src/
+      main.rs                CLI parsing, --dump, window startup
+      ui.rs                  app state, view, keys, pointer, scroll
+      ui/tests.rs            headless Runtime tests (geometry, rows, keys)
+      launch.rs              detached spawn, cliphist decode → wl-copy
+      instance.rs            flock single instance, SIGTERM toggle-close
 ```
+
+The UI crate depends on `gofi-core` and Rune. `gofi-core` stays UI-free so the
+provider/ranking/state tests run in milliseconds.
 
 Keep modules small. A file over ~500 lines is a signal to split by capability, not a
 hard rule. Tests live beside the behavior they cover or in `tests/` when they need a
@@ -66,24 +75,26 @@ real temp tree.
 
 ```rust
 pub trait Provider {
-    fn load(&self) -> Result<Vec<Item>, ProviderError>;
+    fn load(&self) -> Result<Loaded, ProviderError>;
 }
 
 pub struct Item {
     pub id: ItemId,          // stable across runs; frecency key
     pub title: String,
     pub subtitle: Option<String>,
-    pub icon: Option<IconSource>,
-    pub search_text: String, // title + keywords + exec, lowercased where useful
+    pub icon: Option<PathBuf>, // resolved file path; the UI only decodes it
+    pub search_text: String,   // title + generic name + keywords, original case
+    pub kind: ItemKind,
     pub action: Action,
 }
 ```
 
 - `ItemId` is `apps:<desktop-file-id>`, `run:exec:<name>` or `clipboard:<id>`. Only
   the first two are frecency keys; clipboard IDs are never persisted.
-- `Action` is an enum (`LaunchArgv`, `CopyClipboard`, later `FocusWindow`, ...). The
-  UI calls `execute(action, &mut Frecency)`; clipboard execution does not touch
-  frecency.
+- `Action` is an enum (`Launch { argv, cwd }`, `CopyClipboard { id }`, later
+  `FocusWindow`, ...). The UI executes it; providers build argv and never shell out.
+- `Loaded` carries items plus per-entry warnings, so one bad file does not fail the
+  mode.
 - `Provider::load` is synchronous for MVP. If a scan is slow, the provider can expose
   a background refresh later without changing the UI; the UI already renders a list
   that can be replaced.
@@ -136,8 +147,8 @@ list to compact. The constants are easy to tune; the behavior test uses a fake c
 {
   "version": 1,
   "modes": {
-    "apps": { "firefox.desktop": { "score": 3.2, "last_used": 1760000000 } },
-    "run":  { "exec:code":      { "score": 1.0, "last_used": 1760000000 } }
+    "apps": { "apps:firefox.desktop": { "score": 3.2, "last_used": 1760000000 } },
+    "run":  { "run:exec:code":       { "score": 1.0, "last_used": 1760000000 } }
   }
 }
 ```
@@ -190,11 +201,14 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 ## Icons
 
 - `Icon=` absolute path → use it.
-- Otherwise search the current icon theme, `hicolor`, `Adwaita`, and
-  `/usr/share/pixmaps` for `{name}.png`, `{name}.svg`, `{name}.xpm` (Rune cannot
-  decode XPM; skip it) at 32/48/64/128/scalable.
+- Otherwise search the icon dirs for `{name}.png`, `{name}.svg` in
+  `32x32`, `48x48`, `64x64`, `128x128`, `256x256`, `512x512`, `scalable`, then the
+  root, then the `hicolor`/`Adwaita` `apps/` layout. Rune rasterizes SVG at the draw
+  size (the `svg` feature).
 - Cache path resolution per icon name; let Rune's `ImageCache` cache decoded pixels.
-- Missing icon → a neutral fallback glyph; never fail the row.
+  The UI keeps one `Image` handle per (path, display scale).
+- Missing icon → an empty 32 px slot so app rows stay aligned; never fail the row.
+  Run rows have no icon; clipboard rows draw a generic glyph.
 
 ## Window geometry
 
@@ -205,11 +219,49 @@ outputs (verified). The app does not need to query display sizes or position its
 on Wayland; it should use a sane initial size and let the rule win. On another
 compositor, the equivalent rule/wrapper is the integration point.
 
+## UI (M2)
+
+One Rune view, no scroll container: the visible slice is seven rows, so the view
+renders only those. Geometry is the measured rofi layout at a 960×495 panel:
+
+| Element | Geometry |
+|---|---|
+| Panel | full window, mantle `#1e2030`, no radius (the compositor may round it) |
+| Top row | y 10, height 59, 20 px side inset |
+| Search field | left, 16 px inner padding, placeholder `Search...` |
+| Tabs | right-aligned, three 100×59 buttons, 20 px gap, radius 8 |
+| List | y 89, x 20, width `panel - 58`, seven 48 px rows, 9 px gap |
+| Row | radius 8; selected blue `#8aadf4` with mantle text |
+| App icon | 32×32 at 9 px from the row's left edge; title at 57 px |
+| Run row | no icon; title at 15 px |
+| Scrollbar | 8 px at the right, base track, blue handle, rofi's length formula |
+
+Keys are handled by the focused text input first: `Up`/`Down` wrap the selection,
+`Tab`/`Shift+Tab` cycle modes, `Enter` activates, `Escape` and `Ctrl+G`/`Ctrl+C`/
+`Ctrl+[` close. Wheel over the list moves the selection one row per event. A click
+activates the row; `focus_on_window_activation` and `on_focus(false)` close the
+window.
+
+Match underlines come from `Ranked::positions`, which are **character** indices into
+the title; the view maps them to UTF-8 byte ranges and merges adjacent characters
+into one `Span::underline` span. A keyword-only match has no positions, so it has no
+underline.
+
+Mode loading is lazy: the CLI mode loads at startup; switching to a mode that has not
+been loaded runs that provider once (apps ~30 ms, run ~14 ms, clipboard ~15 ms) and
+keeps the items for the rest of the process. Clipboard IDs and previews never enter
+the frecency state.
+
 ## Process model (one-shot accepted)
 
 A one-shot process: Sway keybind runs `gofi`, window opens, selection launches and
 exits. This is simple and matches rofi. Release `hello` measured 90 ms median
 readiness (240 ms first run); the real app must be measured again.
+
+Single instance (ADR 0009): the process holds `$XDG_RUNTIME_DIR/gofi.lock` with
+`flock`. A second invocation reads the holder's PID and sends `SIGTERM` if
+`/proc/<pid>/comm` is `gofi`, which is the accepted "press the keybind again to close
+it" behavior. `--dump` never takes the lock.
 
 If cold start misses the budget, the resident fallback is:
 
