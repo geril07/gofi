@@ -1,7 +1,7 @@
 # Status
 
 **Last updated:** 2026-11-10
-**Phase:** M0 — validation and infrastructure
+**Phase:** M0 complete → M1 — core model
 
 ## Done
 
@@ -19,7 +19,8 @@
   release **90 ms median** (9 warm runs, 240 ms first run). This is process start →
   first `on_ready`, not compositor presentation. One-shot process is viable; the
   daemon is not needed for MVP (ADR 0007).
-- Launcher surface spike passed (Rune 700×480 borderless transparent window):
+- Launcher surface spike passed (Rune 700×480 borderless transparent window; the
+  real target is 960×495):
   - `rune::set_app_id("gofi")` → Sway sees `app_id="gofi"`.
   - `for_window [app_id="gofi"] floating enable, border none, move position center`
     + `resize set 700 480` → exactly 290,160 700×480 on a 1280×800 output.
@@ -33,21 +34,30 @@
   socket is private, checks `app_id`/focus, captures screenshots, types a query,
   and checks Escape closes the window. Verified with the surface spike:
   `PASS` (evidence in `target/evidence/e2e-spike/`).
+- Owner provided screenshots (`references/screenshots/`, gitignored). Measured the
+  real look: **960×495** panel, 902×48 selected row, 57 px pitch, 100×59 mode tabs
+  with 21 px gap, 8 px scrollbar, matched characters underlined. The tabs are the
+  mode switcher; the folder/filebrowser tab is dropped.
+- **Clipboard is in MVP.** It uses the existing `cliphist` database and
+  `cliphist decode | wl-copy`; no own history, no clipboard content in state/logs.
+  ADR 0008. Verified the pipeline with a private DB in nested Sway:
+  `store` → `list` → `decode` → `wl-copy` → `wl-paste` returned the test value.
 - Wrote the initial docs: orchestration, goals, architecture, verification, ADRs
-  0001–0007, this status, and the Rune assessment.
+  0001–0008, this status, and the Rune assessment.
 
 ## In progress
 
-Nothing. M0 spike work is next.
+Nothing yet; M1 scaffolding is next.
 
 ## Next (ordered)
 
 1. **Scaffold the Cargo project** and implement the headless core (`--dump`) before
-   the UI: desktop parser, PATH scan, ranking, frecency, state.
-2. **First UI slice** on top of the core: real item list, icons, selection, launch.
-   The surface spike proved the window/focus/text path; do not rebuild it blindly.
+   the UI: desktop parser, PATH scan, cliphist provider, ranking, frecency, state.
+2. **First UI slice** on top of the core: 960×495 window, mode tabs, icons, match
+   underlines, selection, launch/copy. The surface spike proved the
+   window/focus/text path; do not rebuild it blindly.
 3. **Sway integration + measurements** on the real app: window rule, keybinds,
-   cold start with providers, daily-use checklist.
+   cold start with providers, clipboard e2e, daily-use checklist.
 
 ## Blockers
 
@@ -55,21 +65,23 @@ None hard.
 
 ## Risks
 
-- Cold start may be too slow for a one-shot process; daemon fallback is designed but
-  unbuilt.
-- IME/text input on Wayland needs a real test.
+- Real-app cold start (desktop parse + PATH scan + cliphist) is unmeasured; the
+  minimal app is 90 ms median, so the budget is likely safe.
+- IME/composed text input on Wayland needs a real test.
+- Clipboard previews are sensitive; never log them or persist them. The provider
+  must stream decode → wl-copy.
 - Rune is pre-release; API churn is expected.
 - Layer-shell immediate keyboard focus is not available; the ordinary-window path is
   the workaround (ADR 0003).
 
 ## Open questions for the owner
 
-1. Screenshots of the current rofi apps/run modes (spacing, width, row height, mode
-   indicator).
-2. Two modes vs one combined list. Default: two modes, preserve keybinds.
-3. Resident daemon acceptable if cold start misses the target?
+1. Three tabs (Apps / Run / Clipboard) vs two tabs + clipboard only on
+   `Mod+Ctrl+c`. Default: three tabs, matching the screenshot layout.
+2. Clipboard source: existing `cliphist` vs gofi-owned history. Default: cliphist.
+3. Window size: 960×495 measured at 1×; confirm on the 1.5× laptop output.
 4. Name (`gofi`) and license (MIT?).
-5. Confirm window switcher and clipboard stay out of MVP.
+5. Confirm the window switcher stays out of MVP.
 
 ## References
 

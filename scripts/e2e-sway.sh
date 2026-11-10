@@ -77,7 +77,7 @@ cat > "$RT/config" <<EOF
 output HEADLESS-1 resolution 1280x800
 default_border none
 for_window [app_id="$APP_ID"] floating enable, border none, move position center
-for_window [app_id="$APP_ID"] resize set 700 480
+for_window [app_id="$APP_ID"] resize set 960 495
 EOF
 
 # The nested compositor. No live-session variables survive.

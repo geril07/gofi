@@ -233,7 +233,9 @@ A task is done when all are true:
 
 ## 9. Current phase
 
-**M0 — validation and infrastructure.** See `status.md`. No feature code until the
-Rune/Wayland spike and the nested-Sway harness are proven. Startup cost is measured
-(90 ms median release readiness); the remaining questions are text input, focus
-behavior, and Sway window rules for a real launcher window.
+**M1 — core model.** M0 is complete: Rune builds, a real window renders under nested
+headless Sway, startup is measured (90 ms median release readiness), text input and
+focus-loss close are verified, the Sway rule is exact, and
+`scripts/e2e-sway.sh` is a working harness. Clipboard is now in MVP (ADR 0008).
+The next work is the headless core (`--dump`): desktop parser, PATH scan, cliphist
+provider, ranking, frecency and state, before the UI.

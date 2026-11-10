@@ -41,7 +41,8 @@ update this ADR.
 - One new dependency (`nucleo-matcher`); small and pure Rust.
 - Ranking behavior is testable without a UI.
 - The frecency key is per mode (`apps:<desktop-id>`, `run:exec:<name>`), so the same
-  name in two modes does not share history.
+  name in apps and run does not share history. Clipboard has no frecency and keeps
+  cliphist's recency order (ADR 0008).
 - Scores are not stable across nucleo versions; update tests by ordering, not numbers.
 
 ## Revisit when

@@ -2,9 +2,9 @@
 
 ## One line
 
-**gofi** is a fast, native Wayland launcher for Sway that replaces `rofi -show drun`
-and `rofi -show run` with better fuzzy ranking and frecency, built in Rust on
-[Rune](https://github.com/anomalyco/rune).
+**gofi** is a fast, native Wayland launcher for Sway that replaces `rofi -show drun`,
+`rofi -show run` and the rofi/cliphist clipboard picker with better fuzzy ranking and
+frecency, built in Rust on [Rune](https://github.com/anomalyco/rune).
 
 Working title. The owner may rename it; do not spend design time on branding yet.
 
@@ -29,7 +29,7 @@ its own sake.
   - `Mod+Shift+Return` → `rofi -show run` (executables)
   - `Mod+Shift+w` → `rofi -show window` (window switcher; **future**)
   - `Mod+Ctrl+c` → `cliphist list | rofi -dmenu | cliphist decode | wl-copy`
-    (clipboard; **future**)
+    (clipboard; **MVP**) → `gofi clipboard`
 - Terminal: kitty. Font: JetBrains Mono. Theme: Catppuccin Macchiato.
 - Existing rofi config is copied to `references/rofi/`; Sway config to
   `references/sway/`.
@@ -42,9 +42,14 @@ its own sake.
    name and optional generic name, launch the parsed `Exec` argv.
 2. **Executables** (`gofi run`): scan `$PATH`, deduplicate by name, launch the first
    match in `PATH` order.
+3. **Clipboard** (`gofi clipboard`): list `cliphist` entries, fuzzy-filter the
+   previews, and copy the selected entry back with `cliphist decode | wl-copy`.
+   No own clipboard database; cliphist remains the source of truth.
 
-The two modes preserve the current muscle memory. A combined list and a mode
-switcher are allowed later, but the two Sway keybinds must keep working.
+The three modes preserve the current muscle memory. The launcher exposes a mode
+switcher matching rofi's tabs: Apps (magnifier), Run (`</>`), Clipboard
+(clipboard icon). The folder/filebrowser tab from rofi is dropped. The same modes
+are also reachable by CLI, so the tab is a convenience, not the only path.
 
 ### Matching and ranking
 
@@ -55,16 +60,20 @@ switcher are allowed later, but the two Sway keybinds must keep working.
 - Empty query: most frecent first, then alphabetical.
 - Frecency may promote a slightly worse match, but must not override a clearly
   better one. The exact blend is an ADR; tune with a fixed corpus of real queries.
+- Clipboard mode is the exception: it uses cliphist's recency order, fuzzy-filters
+  the previews, and does **not** persist or rank by frecency. Clipboard contents are
+  sensitive; keep them out of state and logs.
 
 ### Interaction (parity with current rofi)
 
 - Type to filter; results update on every keystroke.
 - `Up`/`Down`, `Ctrl+P`/`Ctrl+N`, `PageUp`/`PageDown`, `Home`/`End`.
-- `Enter` launches; `Escape` closes; focus loss closes.
-- `Tab`/`Shift+Tab` switches mode if a combined mode is added.
-- Click a row to launch; scroll moves the selection.
+- `Enter` launches/copies; `Escape` closes; focus loss closes.
+- `Tab`/`Shift+Tab` switches modes (Apps → Run → Clipboard).
+- Click a row to launch/copy; click a tab to switch mode; scroll moves the selection.
 - Selected row resets to the top on query change; list wraps at the ends.
 - Query is empty and focused on open; the previous query is not restored by default.
+- Clipboard selection copies the entry and closes; do not paste automatically.
 
 ### Look
 
@@ -74,8 +83,14 @@ Match the current rofi theme closely enough that the switch is invisible:
   text `#cad3f5`, blue `#8aadf4`.
 - JetBrains Mono 16 (Rune may fall back to its bundled font if the system font is
   unavailable; do not bundle the font unless licensing is clear).
-- 32 px icons, 7 visible rows, 8 px row radius, generous row padding.
-- Centred, borderless, no titlebar; width ~700 logical px; height fits 7 rows.
+- 32 px icons, 7 visible rows, 48 px row height, 57 px pitch, 8 px row radius.
+- Centred, borderless, no titlebar; **960×495 logical** (measured from the owner's
+  screenshots; verify on the 1.5× laptop output).
+- Top bar: search input on the left, three mode tabs (100×59, 8 px radius, 21 px
+  gap) on the right. Selected tab is blue; unselected tabs are base.
+- Matched query characters are underlined in both selected and unselected rows.
+- Selected row: blue `#8aadf4`, mantle text. Unselected: text `#cad3f5`.
+- Scrollbar: 8 px handle, blue, at the right edge.
 - No window shadow from the compositor if Swayfx adds one; the panel draws its own
   rounded background.
 
@@ -86,6 +101,7 @@ Targets, measured on the owner's machine (not asserted in unit tests):
 - Cold start to interactive window: **≤ 400 ms p95**.
 - Warm toggle (resident process, if adopted): **≤ 80 ms p95**.
 - Query update with ~5,000 executables: **≤ 16 ms p95** on the UI thread.
+- Clipboard mode open with 750 cliphist entries: **≤ 100 ms** to first results.
 - Idle: no redraws while the window is hidden; negligible CPU.
 
 If cold start cannot meet the target, the fallback is a resident daemon with a
@@ -97,49 +113,57 @@ choosing.
 - `$XDG_STATE_HOME/gofi/state.json` (fallback `~/.local/state/gofi/state.json`).
 - Per-mode frecency keyed by stable item ID (`desktop-file-id` for apps,
   `exec:<name>` for run).
+- Clipboard entries are **not** persisted; cliphist owns that history. Never write
+  clipboard contents or IDs to gofi state or logs.
 - Atomic writes; corrupt/missing state falls back to empty with a warning, never a
   crash.
 
 ### Sway integration
 
 - `rune::set_app_id("gofi")` so window rules match `app_id="gofi"`.
-- Window rule: floating, borderless, centred, correct size; does not affect other
+- Window rule: floating, borderless, centred, 960×495; does not affect other
   windows.
-- Two keybinds replacing the rofi ones only after the daily-use checklist passes.
+- Keybinds replacing the rofi ones only after the daily-use checklist passes:
+  - `Mod+Return` → `gofi`
+  - `Mod+Shift+Return` → `gofi run`
+  - `Mod+Ctrl+c` → `gofi clipboard`
 - Keep the rofi keybinds commented in the config until then; do not break the
   owner's daily driver during development.
 
 ## Out of scope for MVP
 
-- Window switcher (`rofi -show window`), clipboard history, file browser, SSH,
-  calculator, web search, custom script modes.
+- Window switcher (`rofi -show window`), file browser, SSH, calculator, web search,
+  custom script modes.
 - Plugins or a scripting API.
 - X11, macOS, Windows, mobile.
 - GUI settings, theme editor, per-app rules.
 - Multi-user/system packaging; AUR/Flatpak can come later.
 - Pixel-perfect golden tests; visual polish is reviewed by screenshots.
 
-The architecture must leave room for future providers (window switcher, clipboard,
-custom pickers) without rewriting the list/ranking/launch core. That means a
-`Provider` boundary and an `Action` boundary, not a plugin system.
+The architecture must leave room for future providers (window switcher, custom
+pickers) without rewriting the list/ranking/launch core. That means a `Provider`
+boundary and an `Action` boundary, not a plugin system. Clipboard is the first
+non-app provider and validates that boundary.
 
 ## Success criteria
 
-1. The owner uses gofi for apps and executables for **one week** without falling back
-   to rofi.
+1. The owner uses gofi for apps, executables and clipboard for **one week** without
+   falling back to rofi.
 2. Typing 2–3 letters finds the intended item in the top three; frequent apps appear
    first on an empty query.
 3. Cold/warm performance meets the targets above.
 4. The launcher never steals focus unexpectedly, never appears during tests, and
    closes on focus loss.
-5. `cargo test`, `clippy -D warnings`, and the nested-Sway e2e pass from a clean
+5. Clipboard selection copies the right entry and never writes clipboard contents to
+   gofi state or logs.
+6. `cargo test`, `clippy -D warnings`, and the nested-Sway e2e pass from a clean
    checkout.
-6. A new contributor (or agent) can read `docs/` and reproduce the build, test and
+7. A new contributor (or agent) can read `docs/` and reproduce the build, test and
    verification without asking the owner.
 
 ## Milestones
 
-- [ ] **M0 — validation and infrastructure**
+- [x] **M0 — validation and infrastructure**
   - [x] Rune builds on Linux with the pinned toolchain (Rust 1.99.1).
   - [x] Rune renders a window under nested headless Sway (wgpu + pixman backend).
   - [x] Current rofi/Sway configs copied to `references/`.
@@ -152,15 +176,19 @@ custom pickers) without rewriting the list/ranking/launch core. That means a
 - [ ] **M1 — core model, no UI**
   - Desktop entry parser + discovery with tests.
   - PATH executable scan with tests.
+  - Cliphist list/decode provider with tests (fake `cliphist`/`wl-copy`).
   - Nucleo ranking + frecency with a fixed corpus and tests.
   - State load/save with corruption and atomicity tests.
-  - `gofi --dump --mode apps|run --query ...` JSON output for headless checks.
+  - `gofi --dump --mode apps|run|clipboard --query ...` JSON output for headless
+    checks.
 - [ ] **M2 — Rune UI**
   - Window, theme, input, list, icons, selection, scrolling.
+  - Mode tabs (Apps / Run / Clipboard) and match underlines.
   - Headless `--snap`/`--tree` scenes.
   - Keyboard/mouse parity checks.
 - [ ] **M3 — launch + state**
   - `Exec` argv building, terminal wrapping, detached spawn.
+  - Clipboard copy pipeline (`cliphist decode` → `wl-copy`).
   - Frecency update on launch; persistence.
   - Failure reporting (log/notification) without blocking.
 - [ ] **M4 — Sway integration + performance**
@@ -173,14 +201,15 @@ custom pickers) without rewriting the list/ranking/launch core. That means a
 
 ## Open questions for the owner
 
-1. **Screenshots** of the current rofi (apps and run modes) to match spacing, width,
-   row height and mode indicator. The config gives most values; a screenshot settles
-   the rest.
-2. **Two modes vs one combined list.** Default plan: two modes, preserving the two
-   keybinds; Tab switches if a combined mode is added later. Confirm.
-3. **Resident daemon.** Acceptable to keep one background process for instant toggles?
-   Default plan: measure cold start first; adopt the daemon only if cold start misses
-   the target.
+1. **Tabs.** Default plan: three tabs (Apps / Run / Clipboard), dropping rofi's
+   folder/filebrowser tab. The modes remain reachable by CLI/keybind. Confirm the
+   visual mode switcher is wanted, or keep two tabs and clipboard only on
+   `Mod+Ctrl+c`.
+2. **Clipboard source.** Default plan: use the existing `cliphist` database and
+   `cliphist decode | wl-copy`; no own history. Confirm, or say if you want gofi to
+   own the clipboard database.
+3. **Window size.** Screenshots measure 960×495 at 1×. Confirm that is the intended
+   size on the 1.5× laptop output, or whether it should scale/fit per output.
 4. **Name and license.** Keep `gofi` and MIT, or choose another name/license?
-5. **Window switcher / clipboard.** Confirm they stay out of MVP even though the
-   architecture leaves room.
+5. **Window switcher.** Confirm it stays out of MVP even though the architecture
+   leaves room for it.

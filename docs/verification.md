@@ -27,10 +27,17 @@ maintenance and catches nothing.
 - State: missing file, corrupt JSON, unknown version, atomic write, lock, round-trip.
 - Launch: argv exactly as parsed; quoted args preserved; field codes expanded;
   terminal wrapping; `Path=`; spawn failure is reported and does not panic.
+- Clipboard: `cliphist list` parsing (id + preview, tabs, empty lines, 750 entries);
+  fuzzy filter preserves recency order; `cliphist decode <id>` streams to `wl-copy`;
+  missing/failing commands report without printing content; state and logs contain no
+  previews or IDs.
 - UI: the tree contains the expected rows, selected row, query; seven visible rows;
   no panic with an empty corpus or a missing icon.
 - E2E: `gofi` window appears with `app_id="gofi"`, is focused, accepts typed text,
   `Enter` launches a fake app, `Escape` closes, focus loss closes.
+- Clipboard e2e: seed a private cliphist database, open `gofi clipboard`, select an
+  entry, verify `wl-paste` returns the exact content, and verify gofi state/logs do
+  not contain it.
 
 ### What we do not test
 
@@ -38,6 +45,7 @@ maintenance and catches nothing.
 - Pixel-perfect screenshots while the UI is still moving. Save screenshots as
   evidence; assert the element tree instead. Add goldens only after the look is
   frozen.
+- Image clipboard thumbnails in MVP; cliphist previews are text only.
 - Obvious std behavior (e.g. that `Path::exists` works). Do not mock the filesystem;
   use a real temp tree.
 - Implementation details that a refactor may legitimately change.
@@ -55,6 +63,7 @@ just test         # cargo test
 just build        # cargo build --release
 just run          # cargo run --release -- (apps)
 just run-mode run # cargo run --release -- run
+just clipboard    # cargo run --release -- clipboard
 just snap         # headless Rune snapshot + tree
 just e2e          # nested headless Sway suite
 just measure      # cold/warm/query measurements
@@ -107,7 +116,7 @@ cat > "$RT/config" <<'EOF'
 output HEADLESS-1 resolution 1280x800
 default_border none
 for_window [app_id="gofi"] floating enable, border none, move position center
-for_window [app_id="gofi"] resize set 700 480
+for_window [app_id="gofi"] resize set 960 495
 EOF
 
 env -u SWAYSOCK -u I3SOCK \
@@ -184,6 +193,25 @@ Notes:
 - `grim` needs `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` of the nested compositor.
 - Keep each test's runtime dir unique; remove it afterwards.
 - Evidence: `target/evidence/<task>/` (logs, tree JSON, screenshots, timings).
+
+## Clipboard e2e (planned)
+
+Clipboard must not touch the owner's real history. Isolate it in the nested
+session:
+
+1. Put a wrapper named `cliphist` first in `PATH` that calls the real binary with
+   `-db-path "$RT/cliphist.db"` and passes `"$@"`. This keeps gofi's command line
+   unchanged while the database lives in the temp dir.
+2. Seed with `printf 'gofi-test-value' | cliphist store`.
+3. Start `gofi clipboard` under the nested Sway, wait for the row, select it.
+4. `wl-paste` in the nested session must return `gofi-test-value`.
+5. Assert `target/evidence/<task>/app.log` and `state.json` do not contain the value.
+
+The nested compositor isolates `wl-copy`/`wl-paste` from the live session; do not
+run clipboard tests against the live `WAYLAND_DISPLAY`.
+
+Verified 2026-11-10 with a private DB: `cliphist store` → `list` (id + preview) →
+`decode` → `wl-copy` → `wl-paste` returned the test value under nested Sway.
 
 ## Performance measurement
 

@@ -1,7 +1,8 @@
 # gofi
 
-A fast, native Wayland launcher for Sway. Applications and executables, fuzzy
-matching, frecency, keyboard-first. Built in Rust on [Rune](https://github.com/anomalyco/rune).
+A fast, native Wayland launcher for Sway. Applications, executables and clipboard
+history, fuzzy matching, frecency, keyboard-first. Built in Rust on
+[Rune](https://github.com/anomalyco/rune).
 
 > Status: pre-alpha. No code yet. We are validating Rune and the Wayland surface
 > strategy before scaffolding.
@@ -17,11 +18,14 @@ override a clearly better match.
 
 - `gofi` — application launcher (XDG `.desktop` entries, icons).
 - `gofi run` — executable launcher (`$PATH`).
+- `gofi clipboard` — cliphist picker; copies the selection with `wl-copy`.
 - Fuzzy matching with smart case and Unicode normalization.
-- Frecency: decayed use count, persisted per mode.
-- Catppuccin Macchiato, JetBrains Mono, 32 px icons, seven rows, centred.
+- Frecency: decayed use count, persisted per app/run mode. Clipboard keeps
+  cliphist's recency order and stores nothing.
+- Catppuccin Macchiato, JetBrains Mono, 32 px icons, seven 48 px rows, 960×495,
+  mode tabs (Apps / Run / Clipboard), matched-character underlines.
 - Sway keybinds and a window rule; no X11, macOS or Windows.
-- Window switcher and clipboard picker are future providers, not MVP.
+- Window switcher is a future provider, not MVP.
 
 ## Docs
 
@@ -41,6 +45,7 @@ override a clearly better match.
 - `references/rofi-src` — rofi 2.0.0 source.
 - `references/rofi` — the user's current rofi config.
 - `references/sway` — the user's current Sway config.
+- `references/screenshots` — owner-provided rofi screenshots (private; gitignored).
 
 ## License
 

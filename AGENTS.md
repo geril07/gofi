@@ -1,8 +1,9 @@
 # gofi
 
-A fast, native Wayland launcher for Sway: application and executable search with
-fuzzy matching and frecency, built in Rust on [Rune](https://github.com/anomalyco/rune).
-Working title; the product definition is in `docs/goals.md`.
+A fast, native Wayland launcher for Sway: application, executable and clipboard
+search with fuzzy matching and frecency, built in Rust on
+[Rune](https://github.com/anomalyco/rune). Working title; the product definition is
+in `docs/goals.md`.
 
 ## Read first, and again after every compaction
 
@@ -22,6 +23,8 @@ Working title; the product definition is in `docs/goals.md`.
   implementation details.
 - **Never touch the user's live Sway session.** All GUI/e2e work runs in a nested
   headless Sway with isolated `XDG_RUNTIME_DIR`, `WAYLAND_DISPLAY`, `SWAYSOCK`, `I3SOCK`.
+- **Clipboard content is sensitive.** Never log previews or decoded content, and
+  never write clipboard entries or IDs to gofi state. `cliphist` owns that history.
 - **`references/` is read-only.** It contains clones of Rune, rofi and the user's
   current configs. Never edit it.
 - **Keep `docs/status.md` current.** Record architecture decisions as ADRs, not chat

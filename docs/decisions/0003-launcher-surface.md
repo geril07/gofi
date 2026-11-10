@@ -32,7 +32,7 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
   or an equivalent explicit `WindowOptions` on Linux.
 - Sway rule:
   `for_window [app_id="gofi"] floating enable, border none, move position center`
-  plus a size rule.
+  plus `resize set 960 495` (the screenshot target; verify on the 1.5× output).
 - Close on focus loss (`App::on_focus`), reopen on the next keybind.
 - Do not use `App::overlay` for the launcher until Rune can grant immediate keyboard
   focus to a layer-shell surface.
@@ -40,7 +40,8 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
 ## Verification (2026-11-10)
 
 A throwaway Rune app with `set_app_id("gofi")` and a 700×480 borderless transparent
-window was run under nested headless Sway:
+window (the spike size; the real target is 960×495, measured from the owner's
+screenshots) was run under nested headless Sway:
 
 - Sway saw `app_id="gofi"`, `focused=true`, rect `290,160 700×480` (centred).
 - Typing reached a focused `text_input`; `Escape` closed the window.

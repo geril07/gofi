@@ -12,7 +12,7 @@ machine (2026-11-10).
 | `Mod+Return` | `rofi -show drun` | applications |
 | `Mod+Shift+Return` | `rofi -show run` | executables |
 | `Mod+Shift+w` | `rofi -show window` | window switcher (future) |
-| `Mod+Ctrl+c` | `cliphist list \| rofi -dmenu \| cliphist decode \| wl-copy` | clipboard (future) |
+| `Mod+Ctrl+c` | `cliphist list \| rofi -dmenu \| cliphist decode \| wl-copy` | clipboard (MVP → `gofi clipboard`) |
 
 `$term` is `kitty`; `$mod` is `Mod4` (Super). `focus_on_window_activation smart`.
 There is an existing `for_window [app_id="fzf-launcher"]` rule, a previous experiment.
@@ -99,9 +99,43 @@ text, selected = blue, active = green, urgent = red.
   top.
 - The owner's main concern is sorting/ranking, not the visual design.
 
-## Screenshots
+## Screenshots and measurements
 
-TODO: the owner offered screenshots of both modes. Add them under
-`references/screenshots/` (gitignored) and record the measured width, height, row
-height, padding and mode-switcher layout here. Until then, the values above are the
-source of truth.
+Owner-provided screenshots are in `references/screenshots/` (gitignored):
+
+- `run-poweroff.png` — run mode, empty query.
+- `apps-discord.png` — apps mode, empty query.
+- `apps-goo.png` — apps mode, query `goo`; matched characters underlined.
+- `run-power.png` — run mode, query `power`; matched characters underlined.
+
+Measured from the PNGs (the images are ~976×521; the panel itself is **960×495**
+physical pixels, almost certainly the 1920×1080 output at 1× scale):
+
+| Element | Measurement |
+|---|---|
+| Panel | 960×495, background `#1e2030` (mantle) |
+| Selected row | 902×48, radius ~8, blue `#8aadf4`, text mantle |
+| Row pitch | ~57 px (48 row + 9 gap), 7 visible rows |
+| Row left inset | ~20 px; right edge leaves room for the scrollbar |
+| Tab button | 100×59, radius ~8, gap ~21 |
+| Tab bar | right-aligned, three buttons, ~20 px from the panel edge |
+| Scrollbar handle | 8×197, blue, at the right edge |
+| Search input | top-left, ~20 px inset, no icon inside; placeholder `Search...` |
+| Icons | 32×32, apps mode only |
+| Font | JetBrains Mono 16 (the screenshots are 1×; the 1.5× laptop output needs a check) |
+
+The tabs are rofi's **mode switcher**, not decorative: magnifier = `drun`,
+`</>` = `run`, folder = `filebrowser`. The folder/filebrowser tab is not needed.
+gofi will use the same pattern with **Apps / Run / Clipboard** (clipboard replaces
+filebrowser), because clipboard is now in MVP. The tab is optional in the sense
+that the same modes are reachable by CLI/keybind; the visual pattern is worth
+keeping because it makes the third mode discoverable.
+
+Match highlighting: rofi underlines the characters that matched the fuzzy query,
+in both the selected and unselected rows. This is part of the look and should be
+implemented as styled spans, not a separate color only.
+
+The selected row's text is dark (mantle) on blue; unselected text is `#cad3f5`.
+Unselected tab buttons use base `#24273a`; the selected tab is blue. The panel
+corners look rounded; Swayfx's global `corner_radius 6` may be responsible. Verify
+whether the app or the compositor rounds them before drawing an extra radius.
