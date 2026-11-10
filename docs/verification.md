@@ -55,19 +55,18 @@ bug is only visible in a real window, add it to the e2e suite.
 
 ## Commands (planned)
 
-`just` is installed. The recipes will be:
+`just` is installed. The current recipes:
 
 ```sh
 just check        # fmt --check, clippy -D warnings, test
-just test         # cargo test
-just build        # cargo build --release
-just run          # cargo run --release -- (apps)
-just run-mode run # cargo run --release -- run
-just clipboard    # cargo run --release -- clipboard
-just snap         # headless Rune snapshot + tree
-just e2e          # nested headless Sway suite
-just measure      # cold/warm/query measurements
+just test         # cargo test --workspace
+just build        # cargo build --release -p gofi
+just dump apps code
+just dump run power
+just dump clipboard ""
 ```
+
+Planned for M2/M3: `just run`, `just snap`, `just e2e`, `just measure`.
 
 Until the project is scaffolded, use the equivalent `cargo` commands directly.
 The generic nested-Sway smoke test already exists:

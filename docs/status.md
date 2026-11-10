@@ -52,7 +52,15 @@
 
 ## In progress
 
-Nothing yet; M1 scaffolding is next.
+M1 core, two workers in isolated worktrees:
+
+- **Worker A** — providers + icons: `.worktrees/m1-providers`,
+  [task 0001](tasks/0001-m1-providers.md).
+- **Worker B** — ranking + frecency + state: `.worktrees/m1-ranking`,
+  [task 0002](tasks/0002-m1-ranking.md).
+
+Both use `opencode-go/deepseek-v4.1-flash`; no model fallback. The orchestrator
+will integrate, wire the final `--dump`, and run the full checks.
 
 ## Next (ordered)
 
