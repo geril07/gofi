@@ -67,7 +67,7 @@ the nested-headless-Sway checks; `just measure` records startup.
   cliphist's recency order and stores nothing.
 - Catppuccin Macchiato, JetBrains Mono, 32 px icons, seven 48 px rows,
   50% width × 495 px height (960×495 on 1920×1080), mode tabs (Apps / Run /
-  Clipboard), matched-character underlines.
+  Clipboard), bold and underlined match characters.
 - Sway keybinds and a window rule; no X11, macOS or Windows.
 - Window switcher is a future provider, not MVP.
 

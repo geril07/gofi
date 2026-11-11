@@ -83,7 +83,7 @@ pub struct Item {
     pub title: String,
     pub subtitle: Option<String>,
     pub icon: Option<PathBuf>, // resolved file path; the UI only decodes it
-    pub search_text: String,   // title + generic name + keywords, original case
+    pub search_text: String,   // the title (rofi's drun-match-fields: name)
     pub kind: ItemKind,
     pub action: Action,
 }
@@ -260,10 +260,11 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 (`reverse: false`: wheel down moves down). A click activates the row;
 `focus_on_window_activation` and `on_focus(false)` close the window.
 
-Match underlines come from `Ranked::positions`, which are **character** indices into
-the title; the view maps them to UTF-8 byte ranges and merges adjacent characters
-into one `Span::underline` span. A keyword-only match has no positions, so it has no
-underline.
+Match highlights come from `Ranked::positions`, which are **character** indices
+into the title; the view maps them to UTF-8 byte ranges and merges adjacent
+characters into one span, drawn bold with a single underline like rofi's default
+`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`. Apps match `Name` only — rofi's
+`drun-match-fields: name` — so every row has visible highlight characters.
 
 Mode loading is lazy: the CLI mode loads at startup; switching to a mode that has not
 been loaded runs that provider once (apps ~30 ms, run ~14 ms, clipboard ~15 ms) and

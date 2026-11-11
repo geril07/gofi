@@ -113,6 +113,24 @@ bug is only visible in a real window, add it to the e2e suite.
 - `just check` green (75 tests); both e2e scripts pass
   (`target/evidence/icons-index/`, `target/evidence/icons-index-actions/`).
 
+## Match result (2026-11-11)
+
+- `--query tgram`: Telegram first (107), GIMP second (83), every row with five
+  highlighted characters. Before, LibreOffice Draw's keyword match won with an
+  empty highlight. Rofi 2.0 with the same corpus ranks GIMP first and Telegram
+  second, so gofi now prefers the tighter match.
+- `--query fire`: Firefox, LibreOffice Impress, LibreOffice Writer — the same
+  order and the same highlighted runs as rofi 2.0 in the nested probe.
+- `--query code`: rofi puts OpenCode first (a camel-case bonus); gofi ties T3
+  Code and Visual Studio Code above OpenCode. The matchers still differ on
+  camel-case boundaries; no invisible matches remain.
+- Matched runs are weight 700 plus underline, rofi's default
+  `ROFI_HL_BOLD | ROFI_HL_UNDERLINE`; screenshot
+  `target/evidence/match-bold/typed.png`. Rofi's underline is 2 px because Pango
+  derives it from the font; Rune's span underline is fixed at 1 px
+  (`scale.max(1.0)`), so the bold run is what closes the visual gap.
+- `just check` green (76 tests).
+
 ## M1 result (2026-11-11)
 
 - `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +

@@ -90,7 +90,7 @@ Match the current rofi theme closely enough that the switch is invisible:
   under the owner's config in nested Sway.
 - Top bar: search input on the left, three mode tabs (100×59, 8 px radius, 21 px
   gap) on the right. Selected tab is blue; unselected tabs are base.
-- Matched query characters are underlined in both selected and unselected rows.
+- Matched query characters are bold and underlined in both selected and unselected rows.
 - Selected row: blue `#8aadf4`, mantle text. Unselected: text `#cad3f5`.
 - Scrollbar: 8 px handle, blue, at the right edge.
 - No window shadow from the compositor if Swayfx adds one; the panel draws its own

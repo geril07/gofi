@@ -161,19 +161,10 @@ fn parse_desktop_file(
 
     let generic = localized(&entry, "GenericName", env);
     let comment = localized(&entry, "Comment", env);
-    let keywords = localized(&entry, "Keywords", env).map(|value| {
-        value
-            .split(';')
-            .filter(|word| !word.is_empty())
-            .collect::<Vec<_>>()
-            .join(" ")
-    });
 
-    let search_text = [Some(name.as_str()), generic.as_deref(), keywords.as_deref()]
-        .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join(" ");
+    // rofi's `drun-match-fields: name`: match only what the row shows, so every
+    // result has visible highlight characters.
+    let search_text = name.clone();
 
     let icon = icon_name.and_then(|icon_name| icons.resolve(icon_name));
 

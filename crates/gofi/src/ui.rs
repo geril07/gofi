@@ -40,6 +40,7 @@ const SCROLLBAR_W: f32 = 8.0;
 const FONTS: &[&[u8]] = &[
     include_bytes!("../assets/JetBrainsMono-Regular.ttf"),
     include_bytes!("../assets/JetBrainsMono-Medium.ttf"),
+    include_bytes!("../assets/JetBrainsMono-Bold.ttf"),
 ];
 
 const BODY: TextStyle = TextStyle::new(21.333, 400.0).lh(26.0);
@@ -777,16 +778,17 @@ fn icon_view(
 
 fn title_text(item: &Item, positions: &[u32], ink: Color) -> El {
     let mut title = text(item.title.clone()).font(BODY).color(ink);
-    let spans = underline_spans(&item.title, positions, ink);
+    let spans = match_spans(&item.title, positions, ink);
     if !spans.is_empty() {
         title = title.spans(spans);
     }
     title
 }
 
-/// Merge the matcher's character indices into byte-range underline spans. The
-/// matcher counts characters; Rune spans count UTF-8 bytes.
-fn underline_spans(title: &str, positions: &[u32], ink: Color) -> Vec<Span> {
+/// Merge the matcher's character indices into byte-range spans. Rofi's default
+/// highlight is bold plus a single underline (`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`);
+/// the matcher counts characters while Rune spans count UTF-8 bytes.
+fn match_spans(title: &str, positions: &[u32], ink: Color) -> Vec<Span> {
     if positions.is_empty() {
         return Vec::new();
     }
@@ -804,16 +806,20 @@ fn underline_spans(title: &str, positions: &[u32], ink: Color) -> Vec<Span> {
             (true, Some((start, _))) => run = Some((start, end)),
             (true, None) => run = Some((byte, end)),
             (false, Some((start, end))) => {
-                spans.push(Span::new(start, end).underline(ink));
+                spans.push(highlighted(start, end, ink));
                 run = None;
             }
             (false, None) => {}
         }
     }
     if let Some((start, end)) = run {
-        spans.push(Span::new(start, end).underline(ink));
+        spans.push(highlighted(start, end, ink));
     }
     spans
+}
+
+fn highlighted(start: usize, end: usize, ink: Color) -> Span {
+    Span::new(start, end).weight(700.0).underline(ink)
 }
 
 fn scrollbar(state: &AppState, palette: &Palette) -> El {

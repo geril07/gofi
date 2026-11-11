@@ -102,7 +102,7 @@ fn apps_discover_name_keywords_and_exec() {
     let item = find_item(&loaded, "apps:firefox.desktop");
     assert_eq!(item.title, "Firefox");
     assert_eq!(item.subtitle.as_deref(), Some("Web Browser"));
-    assert_eq!(item.search_text, "Firefox Web Browser internet browser");
+    assert_eq!(item.search_text, "Firefox", "keywords are not matched");
     assert_eq!(item.kind, ItemKind::App);
     assert_eq!(launch_argv(item), ["firefox"]);
     assert!(item.icon.is_none());

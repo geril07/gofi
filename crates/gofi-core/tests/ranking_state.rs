@@ -149,6 +149,17 @@ fn positions_underline_the_title_and_skip_keyword_only_matches() {
 }
 
 #[test]
+fn a_starting_match_beats_a_scattered_one() {
+    let items = corpus(&["Telegram", "GNU Image Manipulation Program"]);
+    let ranked = rank_at(&items, "tgram", Mode::Apps, &Frecency::default(), NOW);
+    assert_eq!(
+        order(&items, &ranked),
+        ["Telegram", "GNU Image Manipulation Program"]
+    );
+    assert_eq!(ranked[0].positions, [0, 4, 5, 6, 7]);
+}
+
+#[test]
 fn frecency_breaks_a_tie() {
     let items = corpus(&["Alpha One", "Alpha Two"]);
     let mut frecency = Frecency::default();

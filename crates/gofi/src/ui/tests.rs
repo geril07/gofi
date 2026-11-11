@@ -464,17 +464,19 @@ fn clipboard_rows_use_the_generic_icon_and_keep_provider_order() {
 fn underline_spans_merge_runs_and_count_bytes() {
     let ink = Palette::get().text;
 
-    let merged = underline_spans("Firefox", &[0, 1, 2, 3], ink);
+    let merged = match_spans("Firefox", &[0, 1, 2, 3], ink);
     assert_eq!(merged.len(), 1);
     assert_eq!((merged[0].start, merged[0].end), (0, 4));
+    assert_eq!(merged[0].weight, Some(700.0), "matched text is bold");
+    assert!(merged[0].underline.is_some(), "matched text is underlined");
 
-    let split = underline_spans("Firefox", &[0, 2], ink);
+    let split = match_spans("Firefox", &[0, 2], ink);
     assert_eq!(split.len(), 2);
     assert_eq!((split[0].start, split[0].end), (0, 1));
     assert_eq!((split[1].start, split[1].end), (2, 3));
 
     // `Ü` is two bytes, so the second character starts at byte 3.
-    let unicode = underline_spans("Über", &[0, 2], ink);
+    let unicode = match_spans("Über", &[0, 2], ink);
     assert_eq!(unicode.len(), 2);
     assert_eq!((unicode[0].start, unicode[0].end), (0, 2));
     assert_eq!((unicode[1].start, unicode[1].end), (3, 4));
