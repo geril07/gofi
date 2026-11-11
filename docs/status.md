@@ -106,6 +106,9 @@
     `Inherits`, `AdwaitaLegacy`, `hicolor`) and searches every declared size and
     category. All apps get an icon except `hwloc` (`lstopo`), which ships none and
     also has none in rofi.
+  - Icon lookup indexes the theme chain once per app scan instead of walking it
+    per name: `--dump --mode apps` dropped from 117 to 23 ms and the first frame
+    by about 100 ms, with identical paths.
   - 9 new tests: **75 total** (23 binary/UI + 3 unit + 19 provider + 30
     ranking/state).
   - Startup re-measured after caching the theme chain and directory lists:

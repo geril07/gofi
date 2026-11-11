@@ -203,14 +203,17 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 - `Icon=` absolute path → use it.
 - Otherwise follow GTK's theme lookup: the `gtk-icon-theme-name` from
   `~/.config/gtk-3.0`/`gtk-4.0/settings.ini` (default `Adwaita`), that theme's
-  `Inherits` chain, then `hicolor`. Each theme's `Directories=` list is searched
+  `Inherits` chain, then `hicolor`. Each theme's `Directories=` list is ranked
   with sizes nearest 32 px first (`32x32`, `48x48`, … `16x16`, `scalable`), so
-  legacy categories such as `16x16/legacy` resolve too. The quick path probes
-  `apps/` only; the full walk runs on a miss. Rune rasterizes SVG at the draw size
-  (the `svg` feature).
-- Path resolution caches the theme chain and each theme's directory list per
-  process; Rune's `ImageCache` caches decoded pixels. The UI keeps one `Image`
-  handle per (path, display scale).
+  legacy categories such as `16x16/legacy` resolve too. Rune rasterizes SVG at
+  the draw size (the `svg` feature).
+- The app provider builds one `Icons` index per scan: the plain
+  `<dir>/[size/]name.ext` layouts first, then each theme in chain order, walking
+  every declared directory once. Precedence is unchanged: theme order, then
+  directory rank, PNG before SVG. `resolve_icon` builds a throwaway index for a
+  single lookup.
+- Rune's `ImageCache` caches decoded pixels; the UI keeps one `Image` handle per
+  (path, display scale).
 - Missing icon → an empty 32 px slot so app rows stay aligned; never fail the row.
   Run rows have no icon; clipboard rows draw a generic glyph.
 

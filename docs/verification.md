@@ -98,6 +98,21 @@ bug is only visible in a real window, add it to the e2e suite.
 - The two e2e scripts still pass (`target/evidence/polish-e2e/`,
   `target/evidence/polish-actions/`).
 
+## Icon index result (2026-11-11)
+
+- Resolving 94 app icons walked Adwaita and AdwaitaLegacy in full for each name
+  before reaching hicolor, where 72 of the 94 live. `Icons` now indexes the
+  plain layouts and every theme in the chain once per app scan; precedence is
+  unchanged and all 94 resolved paths are byte-identical.
+- `--dump --mode apps`: **117 ms → 23 ms** median (12 runs, warm cache), 94
+  apps, 93 icons (`hwloc` absent as before).
+- Startup, spawn → first buffer commit, alternating 16 runs in a private nested
+  Sway: gofi median **124 ms**, rofi 2.0 median **59 ms**; paired gap **+65 ms**,
+  down from +172 ms before the index. Absolute values move with session cache
+  state; the paired gap is the stable figure.
+- `just check` green (75 tests); both e2e scripts pass
+  (`target/evidence/icons-index/`, `target/evidence/icons-index-actions/`).
+
 ## M1 result (2026-11-11)
 
 - `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +

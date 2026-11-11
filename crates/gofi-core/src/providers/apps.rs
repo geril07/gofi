@@ -11,7 +11,7 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
-use crate::icons::resolve_icon;
+use crate::icons::Icons;
 use crate::model::{Action, Item, ItemId, ItemKind, Loaded, Provider, ProviderError};
 use crate::xdg::{Env, expand_home};
 
@@ -29,7 +29,9 @@ impl Provider for AppsProvider {
     fn load(&self) -> Result<Loaded, ProviderError> {
         let mut loaded = Loaded::default();
         let mut seen: HashSet<String> = HashSet::new();
-        let mut icon_cache: HashMap<String, Option<PathBuf>> = HashMap::new();
+        // One index for the whole scan: a per-name walk costs a hundred times
+        // more on a real icon theme.
+        let icons = Icons::new(&self.env);
 
         for dir in self.env.applications_dirs() {
             if !dir.is_dir() {
@@ -47,13 +49,7 @@ impl Provider for AppsProvider {
                 if !seen.insert(id.clone()) {
                     continue;
                 }
-                match parse_desktop_file(
-                    &path,
-                    &id,
-                    &self.env,
-                    &mut icon_cache,
-                    &mut loaded.warnings,
-                ) {
+                match parse_desktop_file(&path, &id, &self.env, &icons, &mut loaded.warnings) {
                     Ok(Some(item)) => loaded.items.push(item),
                     Ok(None) => {}
                     Err(warning) => loaded.warnings.push(warning),
@@ -108,7 +104,7 @@ fn parse_desktop_file(
     path: &Path,
     id: &str,
     env: &Env,
-    icon_cache: &mut HashMap<String, Option<PathBuf>>,
+    icons: &Icons,
     warnings: &mut Vec<String>,
 ) -> Result<Option<Item>, String> {
     let bytes = fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
@@ -179,12 +175,7 @@ fn parse_desktop_file(
         .collect::<Vec<_>>()
         .join(" ");
 
-    let icon = icon_name.and_then(|icon_name| {
-        icon_cache
-            .entry(icon_name.to_string())
-            .or_insert_with(|| resolve_icon(icon_name, env))
-            .clone()
-    });
+    let icon = icon_name.and_then(|icon_name| icons.resolve(icon_name));
 
     Ok(Some(Item {
         id: ItemId(format!("apps:{id}")),

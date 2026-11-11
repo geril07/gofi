@@ -1,14 +1,18 @@
 //! Icon name → file path resolution.
 //!
-//! Resolution never fails a row: a missing icon is [`None`]. The quick path
-//! probes the sizes a 32 px row actually uses; only a miss walks every directory
-//! in the theme chain, which is what finds the legacy 16 px icons rofi shows.
+//! Resolution never fails a row: a missing icon is [`None`]. [`Icons`] indexes
+//! the theme chain once and resolves a whole app list from it; resolving one
+//! name at a time would walk the same directories for every row.
 //!
 //! Themes follow GTK's lookup: the `gtk-icon-theme-name` from the user's GTK
 //! settings, then that theme's `Inherits` chain, then the stock fallbacks, with
-//! `hicolor` last because the spec makes it the required fallback.
+//! `hicolor` last because the spec makes it the required fallback. Within a
+//! theme, directories are ranked by size and category, exactly as rofi shows
+//! them.
 
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -25,90 +29,128 @@ const EXTRA_SIZES: [&str; 5] = ["96x96", "192x192", "384x384", "24x24", "22x22"]
 const SMALL_SIZES: [&str; 2] = ["16x16", "symbolic"];
 const EXTENSIONS: [&str; 2] = ["png", "svg"];
 
+/// One name → path lookup. Build it once per app scan; it is a snapshot of the
+/// icon tree, so icons installed later in the same process are not seen.
+pub struct Icons {
+    simple: HashMap<String, PathBuf>,
+    themes: Vec<HashMap<String, PathBuf>>,
+}
+
+impl Icons {
+    pub fn new(env: &Env) -> Self {
+        let mut simple = HashMap::new();
+        for dir in env.icons_dirs() {
+            for size in QUICK_SIZES {
+                read_names(&dir.join(size), &mut simple);
+            }
+            read_names(&dir, &mut simple);
+        }
+
+        let mut themes = Vec::new();
+        for theme in theme_chain(env) {
+            let mut map = HashMap::new();
+            // Every icon dir on the search path can contribute to the same
+            // theme; the first dir wins, as it does in a per-name walk.
+            for dir in env.icons_dirs() {
+                let root = dir.join(&theme);
+                if !root.is_dir() {
+                    continue;
+                }
+                for relative in theme_directories(&root) {
+                    read_names(&root.join(relative), &mut map);
+                }
+            }
+            themes.push(map);
+        }
+
+        Self { simple, themes }
+    }
+
+    pub fn resolve(&self, name: &str) -> Option<PathBuf> {
+        let name = name.trim();
+        if name.is_empty() {
+            return None;
+        }
+
+        let path = Path::new(name);
+        if path.is_absolute() {
+            return path.is_file().then(|| path.to_path_buf());
+        }
+
+        // A relative path is not a valid icon name; the spec only allows an
+        // absolute path or a name looked up in the theme.
+        if name.contains('/') {
+            return None;
+        }
+
+        self.simple
+            .get(name)
+            .or_else(|| self.themes.iter().find_map(|theme| theme.get(name)))
+            .cloned()
+    }
+}
+
+/// Resolve one icon. Builds the whole index, so callers resolving several names
+/// should build [`Icons`] once instead.
 pub fn resolve_icon(name: &str, env: &Env) -> Option<PathBuf> {
-    let name = name.trim();
-    if name.is_empty() {
-        return None;
-    }
-
-    let path = Path::new(name);
-    if path.is_absolute() {
-        return path.is_file().then(|| path.to_path_buf());
-    }
-
-    // A relative path is not a valid icon name; the spec only allows an absolute
-    // path or a name looked up in the theme.
-    if name.contains('/') {
-        return None;
-    }
-
-    let dirs = env.icons_dirs();
-
-    // Simple layouts: `<dir>/32x32/name.png` and `<dir>/name.png` (pixmaps).
-    for dir in &dirs {
-        for size in QUICK_SIZES {
-            if let Some(found) = probe(&dir.join(size), name) {
-                return Some(found);
-            }
-        }
-        if let Some(found) = probe(dir, name) {
-            return Some(found);
-        }
-    }
-
-    for theme in theme_chain(env) {
-        for dir in &dirs {
-            let theme_dir = dir.join(&theme);
-            if !theme_dir.is_dir() {
-                continue;
-            }
-            if let Some(found) = find_in_theme(&theme_dir, name, false) {
-                return Some(found);
-            }
-            if let Some(found) = find_in_theme(&theme_dir, name, true) {
-                return Some(found);
-            }
-        }
-    }
-
-    None
+    Icons::new(env).resolve(name)
 }
 
-fn probe(dir: &Path, name: &str) -> Option<PathBuf> {
-    for extension in EXTENSIONS {
-        let candidate = dir.join(format!("{name}.{extension}"));
-        if candidate.is_file() {
-            return Some(candidate);
+/// Add every `*.png`/`*.svg` in `dir` to `map`. A name already present keeps
+/// its path unless the new one is a PNG in the same directory: a plain probe
+/// checks PNG before SVG.
+fn read_names(dir: &Path, map: &mut HashMap<String, PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
         }
-    }
-    None
-}
-
-fn find_in_theme(theme_dir: &Path, name: &str, full: bool) -> Option<PathBuf> {
-    if !full {
-        for size in QUICK_SIZES {
-            if let Some(found) = probe(&theme_dir.join(size).join("apps"), name) {
-                return Some(found);
+        let Some(extension) = path.extension().and_then(OsStr::to_str) else {
+            continue;
+        };
+        if !EXTENSIONS.contains(&extension) {
+            continue;
+        }
+        let Some(name) = path.file_stem().and_then(OsStr::to_str) else {
+            continue;
+        };
+        match map.entry(name.to_string()) {
+            Entry::Vacant(slot) => {
+                slot.insert(path);
+            }
+            Entry::Occupied(mut slot) => {
+                let current = slot.get();
+                let current_extension = current.extension().and_then(OsStr::to_str);
+                if current.parent() == path.parent()
+                    && current_extension == Some("svg")
+                    && extension == "png"
+                {
+                    slot.insert(path);
+                }
             }
         }
-        return None;
     }
-
-    for relative in theme_directories(theme_dir) {
-        if let Some(found) = probe(&theme_dir.join(relative), name) {
-            return Some(found);
-        }
-    }
-    None
 }
 
-/// Every icon directory a theme declares, best size for a 32 px row first.
+/// Every icon directory a theme declares, best size for a 32 px row first,
+/// plus the `apps` directories a quick lookup probes even when undeclared.
 fn theme_directories(theme_dir: &Path) -> Vec<String> {
     let mut guard = cache();
     if let Some(directories) = guard.theme_dirs.get(theme_dir) {
         return directories.clone();
     }
-    let directories = build_theme_directories(theme_dir);
+    let mut directories = build_theme_directories(theme_dir);
+    for size in QUICK_SIZES {
+        let entry = format!("{size}/apps");
+        if !directories.contains(&entry) {
+            directories.push(entry);
+        }
+    }
+    directories.sort_by_key(|entry| directory_rank(entry));
+    directories.dedup();
     guard
         .theme_dirs
         .insert(theme_dir.to_path_buf(), directories.clone());
