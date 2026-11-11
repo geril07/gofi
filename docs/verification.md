@@ -131,6 +131,24 @@ bug is only visible in a real window, add it to the e2e suite.
   (`scale.max(1.0)`), so the bold run is what closes the visual gap.
 - `just check` green (76 tests).
 
+## Startup breakdown (2026-11-11)
+
+Spawn → first buffer commit, 12 runs, nested headless Sway. The client renders
+with the real GPU (`RADV PHOENIX`); only compositing is pixman.
+
+| Phase | Median |
+|---|---|
+| spawn → Wayland connect | 3.6 ms |
+| connect → first window surface | 63.9 ms |
+| window → first Vulkan buffer | 50.6 ms |
+| buffer → commit | 7.7 ms |
+| **total** | **126.2 ms** |
+
+The `connect → window` slice includes the app provider and icon index (about
+20 ms; `--dump` is 17 ms without icons and 23 ms with). Rune prewarms the GPU on
+a thread; the rest is winit/font/window setup, wgpu device and swapchain,
+pipelines and the first draw. Rofi 2.0 in the same session: 57.9 ms median.
+
 ## M1 result (2026-11-11)
 
 - `just check` green: fmt, clippy `-D warnings`, 49 tests (3 unit + 16 provider +

@@ -140,11 +140,14 @@ None hard.
 
 ## Risks
 
-- Cold start is measured under nested headless Sway with the pixman renderer.
-  A real GPU and Swayfx may differ; re-measure in the owner's session before
-  promising the 400 ms p95.
-- The icons provider resolves every icon eagerly at startup. It is inside the
-  budget now; if the app count grows, defer resolution to visible rows.
+- Cold start is measured under nested headless Sway. The client renders with the
+  real GPU (RADV), while the harness compositor uses pixman; only presentation is
+  software-composited. First frame is ~126 ms (rofi 58 ms); the ~100 ms UI slice
+  is Rune/wgpu init and the first draw, not icons. Re-measure on the owner's
+  Swayfx session before promising the p95.
+- The icons provider resolves every icon eagerly at startup, but the theme-chain
+  index makes it ~20 ms regardless of app count. If that ever matters, resolve
+  only the visible rows.
 - IME/composed text input on Wayland needs a real test.
 - Clipboard previews are sensitive; never log them or persist them. The provider
   streams decode → wl-copy. E2E screenshots contain only synthetic test strings.
