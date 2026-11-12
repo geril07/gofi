@@ -79,7 +79,7 @@ fail() {
 cat > "$RT/config" <<EOF
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="$APP_ID"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center
+for_window [app_id="$APP_ID"] floating enable, border none, resize set 50 ppt 495 px, move position center
 EOF
 
 # The nested compositor. No live-session variables survive.

@@ -49,11 +49,17 @@
 - Installed it (`~/.local/bin/gofi`, `just install`) and re-checked geometry against
   the owner's real config: plain `move position center` centred in the workspace,
   which sits below the bar and inside `gaps inner 8` — 952×495 at 484,310 instead
-  of rofi's 960×495 at 480,293. The rule now uses
-  `resize set 50 ppt 495 px, resize grow width 8 px, move absolute position center`;
-  measured 960×495 at 480,292 and 853×495 at 426,285 with the two outputs. The
-  `resize grow width 8 px` cancels this config's horizontal gap inset and is
-  owner-config-specific; the README documents it.
+  of rofi's 960×495 at 480,293. The rule adds `resize grow width 8 px` to cancel the
+  horizontal gap inset (owner-config-specific; the README documents it).
+- Tried `move absolute position center` for rofi's vertical centring. It is wrong on
+  multiple outputs: Sway centres across the whole output layout, not the focused
+  one (measured x 2293 with three test outputs). Back to `move position center`,
+  which follows the focused workspace. Verified through `swaymsg exec` (the keybind
+  path) with two outputs: **960×495 at 2186,292** on the focused 1920×1080 output and
+  **853×495 at 426,285** on the focused 1706×1066 (2560×1600 @ 1.5) output.
+- A bar shifts the workspace-centred panel down by about half the bar height,
+  because rofi's layer-shell surface centres on the output. Exact parity needs the
+  layer-shell launcher surface (see `rune-assessment.md`), not a Sway rule.
 - Wrote the initial docs: orchestration, goals, architecture, verification, ADRs
   0001–0008, this status, and the Rune assessment.
 - **M1 core complete** (`b27561f` providers, ranking/state integrated next commit):
@@ -121,7 +127,9 @@
     now puts Telegram first).
   - Matched characters are bold and underlined, matching rofi's default highlight
     (`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`).
-  - Ranking test for `tgram`; **76 tests** total.
+  - Long clipboard previews no longer push the scrollbar: rows truncate with `…`
+    and the list shrinks, so the scrollbar sits at the same x as apps/run.
+    Regression test for it; **77 tests** total.
   - `just install` copies the release binary to `~/.local/bin/gofi`; the installed
     copy passes both nested-Sway e2e scripts. Sway config remains the owner's step.
   - Startup re-measured after caching the theme chain and directory lists:

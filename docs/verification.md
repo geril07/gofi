@@ -137,17 +137,27 @@ bug is only visible in a real window, add it to the e2e suite.
   both e2e scripts (`target/evidence/install-apps/`,
   `target/evidence/install-actions/`).
 - Ran the installed binary under nested Sway with the owner's actual config
-  (startup and local `exec` includes commented out). The original rule
-  `move position center` centred in the workspace, not the output: `gaps inner 8`
-  made the window **952×495 at 484,310** instead of rofi's 960×495 at 480,293.
-- The rule is now `resize set 50 ppt 495 px, resize grow width 8 px,
-  move absolute position center`. Measured **960×495 at 480,292** on 1920×1080
-  and **853×495 at 426,285** on 2560×1600 @ 1.5, matching rofi. The `grow` term
-  cancels this config's gap inset; `move absolute position center` is the part
-  that removes the bar-induced vertical shift, and the README documents both.
-- Typing `fire` shows Firefox bold and underlined, and Escape closes the window:
-  `target/evidence/real-config/typed.png`.
-- `just check` green (76 tests).
+  (startup and local `exec` includes commented out). `move position center` centred
+  in the workspace, not the output: `gaps inner 8` made the window **952×495 at
+  484,310** instead of rofi's 960×495 at 480,293.
+- The rule adds `resize grow width 8 px` to cancel this config's gap inset.
+  `move absolute position center` was tried and rejected: Sway centres it across the
+  whole output layout, so with two outputs the panel landed between them.
+- With `move position center` and two nested outputs, launching through
+  `swaymsg exec` (the keybind path) put the panel on the focused output:
+  **960×495 at 2186,292** on 1920×1080 and **853×495 at 426,285** on
+  2560×1600 @ 1.5. A bar makes it centre in the workspace below the bar, so it can
+  sit lower than rofi; exact output centring needs a layer-shell surface.
+- With the owner's full config on two nested outputs, launched through
+  `swaymsg exec`: 853x495 at 426,285 on the focused 2560x1600 @ 1.5 output and
+  960x495 at 2186,292 on the focused 1920x1080 output. The panel follows the
+  focused workspace. `target/evidence/real-config-dual/`.
+- Long clipboard previews (cliphist caps them at 100 chars) used to widen the list
+  and push the scrollbar to the window edge. Rows now truncate with `…` and the
+  list can shrink: the scrollbar sits at x 932 in both modes (1412-1419 px in the
+  1920 capture, `target/evidence/scrollbar/clipboard-fixed.png`). Regression test
+  `long_clipboard_titles_do_not_push_the_scrollbar`.
+- `just check` green (77 tests).
 
 ## Startup breakdown (2026-11-11)
 
@@ -248,7 +258,7 @@ rm -rf "$RT"; mkdir -p "$RT"; chmod 700 "$RT"
 cat > "$RT/config" <<'EOF'
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center
+for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center
 EOF
 
 env -u SWAYSOCK -u I3SOCK \

@@ -31,7 +31,7 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
 - `WindowOptions::launcher_panel()` (hidden, borderless, transparent, non-resizable)
   or an equivalent explicit `WindowOptions` on Linux.
 - Sway rule:
-  `for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center`.
+  `for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center`.
   50% width and 495 logical height match rofi on both the 1920×1080 and
   2560×1600 @ 1.5 outputs.
 - Close on focus loss (`App::on_focus`), reopen on the next keybind.

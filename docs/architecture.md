@@ -220,7 +220,7 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 ## Window geometry
 
 The launcher is a normal toplevel; Sway owns its placement and size. The rule
-`for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center`
+`for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center`
 matches rofi's layer-shell geometry on both the 1920×1080 and 2560×1600 @ 1.5
 outputs (verified). The app does not need to query display sizes or position itself
 on Wayland; it should use a sane initial size and let the rule win. On another
@@ -247,7 +247,9 @@ The list follows rofi's `scroll-method: 1`: the selected row walks down to the
 middle of the seven rows, then the list follows it (`offset = selected - 3`); near
 the end the list stops at a full seven-row page, and a short list keeps the gap
 below. The scrollbar handle is positioned absolutely inside its track and tracks
-the selected row, as rofi's does; it is not the viewport offset.
+the selected row, as rofi's does; it is not the viewport offset. Rows are one
+line and truncate with `…`; the list may shrink below its content, so a long cliphist
+preview cannot widen the column and push the scrollbar to the window edge.
 
 Keys are handled by the focused text input first: `Up`/`Down` and `Ctrl+P`/`Ctrl+N`
 wrap the selection, `PageUp`/`PageDown` move seven rows, `Home`/`End` jump to the

@@ -650,16 +650,20 @@ fn clipboard_glyph(size: f32, ink: Color) -> El {
 }
 
 fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
-    let mut list = col().key("list").w_full().grow(1.0).gap(ROW_GAP).on_wheel(
-        |state: &mut AppState, event: WheelEvent, _tx| {
+    let mut list = col()
+        .key("list")
+        .w_full()
+        .grow(1.0)
+        .shrink()
+        .gap(ROW_GAP)
+        .on_wheel(|state: &mut AppState, event: WheelEvent, _tx| {
             if event.dy == 0.0 {
                 return false;
             }
             // Wheel down (negative dy in Rune's content direction) moves down.
             state.move_selection(if event.dy > 0.0 { -1 } else { 1 });
             true
-        },
-    );
+        });
 
     if state.ranked.is_empty() {
         if let Some(notice) = &state.notice {
@@ -777,7 +781,7 @@ fn icon_view(
 }
 
 fn title_text(item: &Item, positions: &[u32], ink: Color) -> El {
-    let mut title = text(item.title.clone()).font(BODY).color(ink);
+    let mut title = text(item.title.clone()).font(BODY).color(ink).truncate();
     let spans = match_spans(&item.title, positions, ink);
     if !spans.is_empty() {
         title = title.spans(spans);

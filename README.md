@@ -38,13 +38,15 @@ The launcher is a normal toplevel with `app_id="gofi"`. Sway gives it rofi's
 geometry with this rule (not installed by the project):
 
 ```sway
-for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center
+for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center
 ```
 
-`move absolute position center` centres on the output, like rofi; plain
-`move position center` centres in the workspace, which shifts the panel down when a
-bar is present. If your config sets `gaps inner N`, add `resize grow width N px`
-after `resize set` to cancel the horizontal inset.
+`move position center` follows the focused workspace, so the panel opens on the monitor
+you are using. Do not use `move absolute position center`: with more than one output
+it centres across the whole output layout instead. With a bar, the panel centres in
+the workspace below it and sits slightly lower than rofi's output-centred layer-shell
+surface. If your config sets `gaps inner N`, add `resize grow width N px` after
+`resize set` to cancel the horizontal inset.
 
 `just check` runs fmt, clippy and the tests; `just e2e` and `just e2e-launch` run
 the nested-headless-Sway checks; `just measure` records startup.

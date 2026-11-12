@@ -122,6 +122,22 @@ fn scroll_offset_matches_rofi_centered_view() {
 }
 
 #[test]
+fn long_clipboard_titles_do_not_push_the_scrollbar() {
+    let temp = TempDir::new().unwrap();
+    let long = "x".repeat(400);
+    let items = (0..10)
+        .map(|index| clipboard(&format!("c{index}"), &format!("{long}{index}")))
+        .collect();
+    let runtime = runtime(state(&temp, Mode::Clipboard, items));
+
+    let (row, _) = runtime.presented("row-0").expect("first row");
+    assert!(close(row[2], 902.0), "row width {}", row[2]);
+
+    let (scrollbar, _) = runtime.presented("scrollbar").expect("scrollbar");
+    assert!(close(scrollbar[0], 932.0), "scrollbar x {}", scrollbar[0]);
+}
+
+#[test]
 fn scrollbar_follows_the_selection_and_stays_at_the_right_edge() {
     let temp = TempDir::new().unwrap();
     let items = (0..10)
