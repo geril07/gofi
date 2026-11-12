@@ -1,69 +1,109 @@
 # gofi
 
-A fast, native Wayland launcher for Sway. Applications, executables and clipboard
-history, fuzzy matching, frecency, keyboard-first. Built in Rust on
+[![CI](https://github.com/geril07/gofi/actions/workflows/ci.yml/badge.svg)](https://github.com/geril07/gofi/actions/workflows/ci.yml)
+
+![gofi searching for "fire"](docs/assets/launcher.png)
+
+A fast, native Wayland launcher for Sway: applications, executables and clipboard
+history with fuzzy matching and frecency. Built in Rust on
 [Rune](https://github.com/anomalyco/rune).
 
-> Status: pre-alpha. The headless core and the Rune window work: apps, run and
-> clipboard modes, icons, underlines, launch/copy, frecency. Sway integration and
-> daily-use polish are next.
+gofi keeps the keyboard-first feel of rofi — the same geometry, Catppuccin
+Macchiato palette and JetBrains Mono text — and adds a ranking model that puts
+what you use most first without letting history override a clearly better match.
 
-## Why
+> **Status:** pre-alpha, daily-drivable on Sway. Apps, run and clipboard modes,
+> icons, launch/copy, frecency and single-instance handling work. The window
+> switcher and packaging are not done.
 
-The current setup uses `rofi -show drun` and `rofi -show run`. The look is fine;
-the sorting is not. gofi keeps the same muscle memory and adds a ranking model
-that puts frequently and recently used items first without letting history
-override a clearly better match.
+## Features
 
-## Build and run
+- **Three modes:** apps (XDG desktop entries with icons), run (`$PATH`
+  executables), and clipboard (`cliphist` history).
+- **Fuzzy matching** with smart case and Unicode normalization. Matched
+  characters are bold and underlined, as in rofi.
+- **Frecency ranking** for apps and run: a decayed use count persisted in
+  `$XDG_STATE_HOME/gofi/state.json`.
+- **Clipboard stays in cliphist.** gofi reads `cliphist list`, decodes the chosen
+  entry with `cliphist decode`, and pipes it to `wl-copy`. Previews and entry IDs
+  are never written to gofi state or logs.
+- **Native Wayland toplevel**, no X11. Opens centred on the focused Sway output
+  at 50% width × 495 px, with seven 48 px rows, 32 px icons and an 8 px
+  scrollbar.
+- **Keyboard-first:** arrows and paging, Tab for modes, Enter to launch or copy,
+  Escape to close, plus readline-style editing keys.
+- **Single instance:** invoking gofi while it is open closes the open launcher.
 
-Rune is carried as local patches: the pinned upstream needs startup work gofi
-depends on and a 2 px match underline. `references/rune` is the pristine clone; the build uses a scratch
-checkout at `vendor/rune` with the local patches in
-[`docs/research/`](docs/research/) applied (`rune-startup.patch`,
-`rune-underline.patch`). `just build` and `just check` run the setup
-automatically.
+## Requirements
+
+- Linux with Sway (Wayland). X11, macOS and Windows are out of scope.
+- Rust 1.99.1, pinned by `rust-toolchain.toml`.
+- [`just`](https://github.com/casey/just) for the recipes.
+- For clipboard mode: `cliphist` and `wl-clipboard` (`wl-copy`).
+- `swaymsg` on `PATH` so gofi can size itself to the focused output; Sway ships
+  it.
+
+## Build and install
+
+gofi builds against a pinned Rune revision with two local patches: a startup fix
+and rofi's 2 px match underline. `references/rune` is a pristine checkout of that
+revision; `vendor/rune` is the scratch checkout the build uses. `just setup-rune`
+fetches the pin and applies every `docs/research/rune-*.patch`; `just build` and
+`just check` run it automatically.
 
 ```sh
-git clone https://github.com/anomalyco/rune references/rune
-git -C references/rune checkout 04b38ae0a73bda03f010e97d2fff540ab91f67b0
-
-just setup-rune                # optional: build/check do this for you
+git clone https://github.com/geril07/gofi
+cd gofi
 just build
-just install                   # copy to ~/.local/bin (BIN_DIR to override)
-gofi                           # apps
-./target/release/gofi run      # executables
-./target/release/gofi clipboard
-
-# Headless, no window:
-./target/release/gofi --dump --mode apps --query fire
+just install        # copies to ~/.local/bin/gofi; set BIN_DIR to override
 ```
 
-For a plain `cargo build`, run `just setup-rune` first. It is idempotent and only
-checks the pin and the applied patch once the checkout exists.
+A plain `cargo build` needs `just setup-rune` first. It is idempotent.
 
-The launcher is a normal toplevel with `app_id="gofi"`. Sway gives it rofi's
-geometry with this rule (not installed by the project):
+## Sway setup
+
+gofi is a normal toplevel with `app_id="gofi"`. Add the window rule and whatever
+keybinds you prefer:
 
 ```sway
 for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center
+
+bindsym $mod+Return exec gofi
+bindsym $mod+Shift+Return exec gofi run
+bindsym $mod+Ctrl+c exec gofi clipboard
 ```
 
-`move position center` follows the focused workspace, so the panel opens on the monitor
-you are using. Do not use `move absolute position center`: with more than one output
-it centres across the whole output layout instead. With a bar, the panel centres in
-the workspace below it and sits slightly lower than rofi's output-centred layer-shell
-surface. If your config sets `gaps inner N`, add `resize grow width N px` after
-`resize set` to cancel the horizontal inset.
+`move position center` follows the focused workspace, so the panel opens on the
+monitor you are using. Do not use `move absolute position center`: with more than
+one output it centres across the whole output layout instead.
+
+With a bar, the panel centres in the workspace below it and sits slightly lower
+than rofi's output-centred layer-shell surface. If your config sets
+`gaps inner N`, add `resize grow width N px` after `resize set` to cancel the
+horizontal inset.
 
 At startup gofi asks Sway for the focused output's width and requests half of it,
 so the rule never resizes the first frame. Outside Sway, or if `swaymsg` is not on
 `PATH`, it falls back to 960×495 and the rule still fixes the size.
 
-`just check` runs fmt, clippy and the tests; `just e2e` and `just e2e-launch` run
-the nested-headless-Sway checks; `just measure` records startup.
+## Usage
 
-## Keys
+```sh
+gofi                 # apps
+gofi run             # executables on $PATH
+gofi clipboard       # cliphist picker
+```
+
+Headless, no window:
+
+```sh
+gofi --dump --mode apps --query fire
+gofi --dump --mode run --limit 10
+```
+
+`--dump` prints ranked items as JSON and exits.
+
+### Keys
 
 | Keys | Action |
 |---|---|
@@ -77,45 +117,43 @@ the nested-headless-Sway checks; `just measure` records startup.
 | `Ctrl+H` / `Ctrl+D` | delete one character backward / forward |
 | Wheel, click | move the selection, activate a row |
 
-## Scope (MVP)
+## How it works
 
-- `gofi` — application launcher (XDG `.desktop` entries, icons).
-- `gofi run` — executable launcher (`$PATH`).
-- `gofi clipboard` — cliphist picker; copies the selection with `wl-copy`.
-- Fuzzy matching with smart case and Unicode normalization.
-- Frecency: decayed use count, persisted per app/run mode. Clipboard keeps
-  cliphist's recency order and stores nothing.
-- Catppuccin Macchiato, JetBrains Mono, 32 px icons, seven 48 px rows,
-  50% width × 495 px height (960×495 on 1920×1080), mode tabs (Apps / Run /
-  Clipboard), bold and underlined match characters.
-- Sway keybinds and a window rule; no X11, macOS or Windows.
-- Window switcher is a future provider, not MVP.
+- `crates/gofi-core` — app, run and clipboard providers; fuzzy ranking with
+  frecency; the state store.
+- `crates/gofi` — Rune UI, Sway geometry, icons, and launch/copy actions.
 
-## Docs
+Clipboard history is cliphist's. gofi asks it for the list, shows the previews,
+and on Enter decodes the selected entry into `wl-copy`; it keeps no copy of its
+own.
+
+## Development
+
+```sh
+just check       # fmt, clippy and the test suite
+just e2e         # nested headless Sway: open, type a query, close
+just e2e-launch  # nested headless Sway: launch and clipboard actions
+just measure     # startup distribution in the nested compositor
+```
+
+GUI tests run in a nested headless Sway with an isolated runtime directory and
+never touch a live session. See [docs/verification.md](docs/verification.md) for
+the harness and the measured numbers.
+
+## Project docs
 
 - [Goals](docs/goals.md)
-- [Orchestration](docs/orchestration.md)
 - [Architecture](docs/architecture.md)
 - [Verification](docs/verification.md)
 - [Status](docs/status.md)
 - [Decisions](docs/decisions/)
-- [Rune assessment](docs/research/rune-assessment.md)
-
-## References
-
-`references/` (gitignored) holds read-only clones used for behaviour and API study:
-
-- `references/rune` — Rune at `04b38ae0a73bda03f010e97d2fff540ab91f67b0`, kept
-  pristine.
-- `vendor/rune` (gitignored) — the same revision with the local patches applied;
-  `just setup-rune` creates it. `just check-rune` verifies the pin and every
-  patch.
-- `references/rofi-src` — rofi 2.0.0 source.
-- `references/rofi` — the user's current rofi config.
-- `references/sway` — the user's current Sway config.
-- `references/screenshots` — owner-provided rofi screenshots (private; gitignored).
+- [Rune assessment](docs/research/rune-assessment.md) and the local
+  [Rune patches](docs/research/)
 
 ## License
 
 MIT. The embedded JetBrains Mono files are under the SIL Open Font License 1.1;
 see `crates/gofi/assets/JetBrainsMono-OFL.txt`.
+
+Rofi is the design reference for geometry, colours and key handling. Rune
+supplies the Wayland window and UI runtime.

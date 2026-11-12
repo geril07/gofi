@@ -3,6 +3,8 @@ name = "gofi"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+description.workspace = true
 
 [dependencies]
 gofi-core = { path = "../gofi-core" }

@@ -1,6 +1,6 @@
 default: check
 
-# Clone pinned Rune into vendor/ and apply the startup patch.
+# Fetch pinned Rune into references/rune, prepare vendor/rune, apply local patches.
 setup-rune:
     scripts/setup-rune.sh
 

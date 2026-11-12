@@ -176,6 +176,10 @@ Nothing. **M4 — Sway integration and daily use — is next.**
    rofi's ~89 ms to first pixels. Upstreaming the Rune patch is deferred; the
    resident daemon (ADR 0007) is optional work to go below the one-shot floor.
 
+## Repository
+
+Source and issues: <https://github.com/geril07/gofi>. Public since 2026-11-13.
+
 ## Blockers
 
 None hard.

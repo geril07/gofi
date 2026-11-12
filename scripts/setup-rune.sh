@@ -24,9 +24,13 @@ grep -q 'path = "../../vendor/rune/crates/rune"' "$CARGO" ||
   die "crates/gofi/Cargo.toml does not point at vendor/rune"
 
 if [ ! -d "$REF/.git" ]; then
-  die "missing references/rune; clone it first:
-  git clone https://github.com/anomalyco/rune references/rune
-  git -C references/rune checkout $PIN"
+  echo "setup-rune: fetching Rune $PIN into references/rune"
+  mkdir -p "$ROOT/references"
+  git init --quiet "$REF"
+  git -C "$REF" remote add origin https://github.com/anomalyco/rune
+  git -C "$REF" fetch --quiet --depth 1 origin "$PIN" ||
+    die "could not fetch Rune $PIN; check the network and rerun"
+  git -C "$REF" checkout --quiet -B pinned FETCH_HEAD
 fi
 HEAD=$(git -C "$REF" rev-parse HEAD)
 [ "$HEAD" = "$PIN" ] || die "references/rune is at $HEAD, expected $PIN"
