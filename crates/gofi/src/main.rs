@@ -159,9 +159,6 @@ fn run_ui(mode: Mode) -> Result<(), String> {
         }
         instance::Claim::Owner(guard) => {
             trace("claim");
-            // Start the GPU prewarm before the event loop does, so it overlaps the
-            // Sway query, font setup and the window's creation.
-            rune::prewarm_gpu();
             ui::set_config(ui::Config { env, mode });
             rune::set_app_id("gofi");
             ui::run();

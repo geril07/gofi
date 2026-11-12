@@ -177,8 +177,8 @@ with the real GPU (`RADV PHOENIX`); only compositing is pixman.
 | **total** | **126.2 ms** |
 
 The `connect → window` slice includes the app provider and icon index (about
-20 ms; `--dump` is 17 ms without icons and 23 ms with). Rune prewarms the GPU on
-a thread; the rest is winit/font/window setup, wgpu device and swapchain,
+20 ms; `--dump` is 17 ms without icons and 23 ms with). Rune's GPU prewarm is a
+no-op on Linux; the rest is winit/font/window setup, wgpu device and swapchain,
 pipelines and the first draw. Rofi 2.0 in the same session: 57.9 ms median.
 
 ## Startup optimization (2026-11-12)
@@ -196,8 +196,8 @@ What changed:
 - `init` starts the mode provider on a thread and returns; the first `poll` takes
   the result. The scan (~20 ms warm, ~30 ms cold) now overlaps Rune's window and
   GPU setup instead of blocking `init`.
-- `rune::prewarm_gpu()` runs in `run_ui` before `App::run`, so wgpu device and
-  renderer creation start earlier.
+- `rune::prewarm_gpu()` was called before `App::run`, but in the pinned Rune its
+  Linux implementation is empty (`render/warm.rs::start`), so it changed nothing.
 
 The remaining phase split (`WAYLAND_DEBUG=1`, 10 runs, logging overhead included)
 is spawn → connect 3.4 ms, connect → xdg_surface 64.5 ms, xdg → first buffer
@@ -208,6 +208,69 @@ work.
 
 `GOFI_TRACE=1 gofi` prints wall-clock markers for `main`, `init`, the preload and
 `on_ready`; `WAYLAND_DEBUG=1` adds the protocol phases.
+
+## Rune startup patch (2026-11-13)
+
+A patch to Rune removes work that every launch paid for whether gofi used it or
+not. `ready_ms` under nested headless Sway with `scripts/measure-startup.sh
+--runs 20`:
+
+| build | median | p95 |
+|---|---:|---:|
+| pinned Rune | 140 ms | 170 ms |
+| patched Rune | **80 ms** | **90 ms** |
+| rofi 2.0, same session | 58 ms | — |
+
+The patch (`research/rune-startup.patch`, 9 files, 138 insertions) changes:
+
+- **CJK and symbol fallbacks load on first use.** Rune eagerly loaded up to 16
+  installed CJK files and the symbol/emoji families during `TextSystem::new`.
+  Here that was ~78 ms per launch even for a Latin-only query. Lazy loading was
+  verified with `日本語テスト` and `🚀 Rocket` `.desktop` entries: both render,
+  including colour emoji.
+- **`fc-list` runs only when the font directories have none of the requested
+  files.** The directory walk is ~3 ms; `fc-list` was ~40 ms here. NixOS store
+  paths still work because the walk finds nothing and falls back to fontconfig.
+- **Image decoder threads start with the first image request**, not at
+  `ImageCache::new` (~14 ms). Icons still load; they are requested during the
+  first frame, after the thread spawn is cheap.
+- **The reduced-motion preference is read after the first frame**, and cached
+  per process. On Linux it loads GIO and its schemas (~10 ms).
+- **Adapter selection asks for an adapter before enumerating.** On this machine
+  `request_adapter` is ~1.6 ms where `enumerate_adapters` was 10–35 ms; the
+  enumeration remains the fallback when the requested adapter is not the
+  compositor's GPU.
+
+Phase timings from the instrumented build (no `WAYLAND_DEBUG`, 8 runs, medians).
+The rows overlap (for example, the image cache and preference read are inside
+`Host::new`), so they are individual costs, not a sum:
+
+| phase | before | after |
+|---|---:|---:|
+| end to end (`ready_ms`) | 140 ms | 80 ms |
+| `TextSystem::new` + fallbacks | 81 ms | 3 ms |
+| `ImageCache::new` | ~14 ms | <1 ms |
+| reduced-motion read | 10 ms | after first frame |
+| window creation | 7 ms | 7 ms |
+| wgpu instance + adapter + device + pipelines | ~50 ms | ~50 ms |
+| surface config + first frame | ~16 ms | ~16 ms |
+
+The GPU work is now the long pole. A Linux implementation of `prewarm_gpu()` was
+built and measured: it warms a device and renderer on a thread, but with the text
+work gone the window waits for the same ~50 ms, and total `ready_ms` stayed at
+80/90 ms. It is not in the patch.
+
+The first draw still waits for the compositor's first configure (~15 ms in the
+nested session). That, plus fresh-process GPU init, is the remaining gap to
+rofi. The resident daemon (ADR 0007) removes both by keeping the device,
+renderer and providers warm.
+
+Verification: `just check` green (80 tests), both nested-Sway e2e scripts pass,
+CJK and emoji screenshots captured in `target/evidence/rune-patch-cjk/` and
+`target/evidence/emoji/`. The patch applies cleanly to the pinned Rune checkout
+(`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with `git apply`. It is **not upstreamed** and the repo still builds against
+`references/rune`; installing the fast build requires applying the patch to the
+Rune checkout.
 
 ## M1 result (2026-11-11)
 

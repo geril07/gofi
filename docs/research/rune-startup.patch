@@ -1,0 +1,351 @@
+diff --git a/crates/rune/src/gpu/pick.rs b/crates/rune/src/gpu/pick.rs
+index caa9de5..cbc69f8 100644
+--- a/crates/rune/src/gpu/pick.rs
++++ b/crates/rune/src/gpu/pick.rs
+@@ -93,6 +93,15 @@ pub(crate) fn pick(instance: &wgpu::Instance, surface: Option<&wgpu::Surface<'_>
+         return Ok(log(Pick { adapter, reason: Reason::EnvPower, compositor }, enumerated));
+     }
+     if let Some(pci) = compositor.as_deref() {
++        // The usual machine has one GPU, and it is the compositor's: asking for an adapter is
++        // far cheaper than enumerating every adapter's properties. Enumerate only when that
++        // adapter isn't the one the compositor draws with.
++        if let Ok(adapter) = request(instance, surface, wgpu::PowerPreference::LowPower)
++            && usable(&adapter)
++            && same_pci(pci, &adapter.get_info().device_pci_bus_id)
++        {
++            return Ok(log(Pick { adapter, reason: Reason::Compositor, compositor }, enumerated));
++        }
+         let adapters = pollster::block_on(instance.enumerate_adapters(wgpu::Backends::all()));
+         let infos: Vec<_> = adapters.iter().map(|a| (a.get_info(), usable(a))).collect();
+         enumerated = Some(infos.iter().filter(|(info, _)| info.device_type != wgpu::DeviceType::Cpu).count());
+diff --git a/crates/rune/src/image.rs b/crates/rune/src/image.rs
+index 96d1cb6..1d2b747 100644
+--- a/crates/rune/src/image.rs
++++ b/crates/rune/src/image.rs
+@@ -146,6 +146,12 @@ pub struct ImageCache {
+     entries: Mutex<HashMap<ImageId, Weak<State>>>,
+     #[cfg(not(target_arch = "wasm32"))]
+     jobs: mpsc::Sender<Job>,
++    #[cfg(not(target_arch = "wasm32"))]
++    receive: Arc<Mutex<mpsc::Receiver<Job>>>,
++    #[cfg(not(target_arch = "wasm32"))]
++    waker: crate::Waker,
++    #[cfg(not(target_arch = "wasm32"))]
++    started: std::sync::Once,
+     #[cfg(target_arch = "wasm32")]
+     wake: crate::Waker,
+ }
+@@ -157,19 +163,33 @@ impl ImageCache {
+     #[cfg(not(target_arch = "wasm32"))]
+     pub fn new(waker: crate::Waker) -> Self {
+         let (jobs, receive) = mpsc::channel::<Job>();
+-        // A session opening on several screenshots decodes them side by side, not one by one.
+-        let receive = Arc::new(Mutex::new(receive));
+-        for _ in 0..DECODERS.min(std::thread::available_parallelism().map_or(1, |n| n.get())) {
+-            let (receive, waker) = (receive.clone(), waker.clone());
+-            std::thread::Builder::new().name("rune-images".into()).spawn(move || {
+-                loop {
+-                    let Ok(job) = receive.lock().unwrap_or_else(|e| e.into_inner()).recv() else { return };
+-                    job.image.finish(job.input.decode_caught());
+-                    waker();
+-                }
+-            }).expect("image worker");
++        Self {
++            entries: Mutex::new(HashMap::new()),
++            jobs,
++            receive: Arc::new(Mutex::new(receive)),
++            waker,
++            started: std::sync::Once::new(),
+         }
+-        Self { entries: Mutex::new(HashMap::new()), jobs }
++    }
++
++    /// Starts the decoder threads on the first image request: spawning them at construction
++    /// made every launch pay for threads an app might never use.
++    #[cfg(not(target_arch = "wasm32"))]
++    fn start_workers(&self) {
++        self.started.call_once(|| {
++            // A session opening on several screenshots decodes them side by side, not one by one.
++            let workers = DECODERS.min(std::thread::available_parallelism().map_or(1, |n| n.get()));
++            for _ in 0..workers {
++                let (receive, waker) = (self.receive.clone(), self.waker.clone());
++                std::thread::Builder::new().name("rune-images".into()).spawn(move || {
++                    loop {
++                        let Ok(job) = receive.lock().unwrap_or_else(|e| e.into_inner()).recv() else { return };
++                        job.image.finish(job.input.decode_caught());
++                        waker();
++                    }
++                }).expect("image worker");
++            }
++        });
+     }
+ 
+     /// PNG (APNG animates), JPEG, GIF and WebP (both animate), BMP, ICO, AVIF (with the `avif`
+@@ -284,6 +304,8 @@ impl ImageCache {
+         let image = Image::new(Arc::new(State { id, pixels: crate::Pixels::from_url(url, srcset), decoded: OnceLock::new() }));
+         entries.insert(id, Arc::downgrade(&image.0));
+         #[cfg(not(target_arch = "wasm32"))]
++        self.start_workers();
++        #[cfg(not(target_arch = "wasm32"))]
+         if self.jobs.send(Job { image: image.clone(), input }).is_err() {
+             let _ = image.0.decoded.set(Err(ImageError("image worker stopped".into())));
+         }
+diff --git a/crates/rune/src/platform/preferences.rs b/crates/rune/src/platform/preferences.rs
+index 3814b17..5d79861 100644
+--- a/crates/rune/src/platform/preferences.rs
++++ b/crates/rune/src/platform/preferences.rs
+@@ -24,6 +24,12 @@ pub(crate) fn reduced_motion() -> bool {
+ 
+ #[cfg(target_os = "linux")]
+ pub(crate) fn reduced_motion() -> bool {
++    static REDUCED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
++    *REDUCED.get_or_init(read_reduced_motion)
++}
++
++#[cfg(target_os = "linux")]
++fn read_reduced_motion() -> bool {
+     // KDE exposes animation duration in kdeglobals; zero disables animation.
+     let config = std::env::var_os("XDG_CONFIG_HOME").map(std::path::PathBuf::from)
+         .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".config")));
+diff --git a/crates/rune/src/text.rs b/crates/rune/src/text.rs
+index edc6ecc..6c70109 100644
+--- a/crates/rune/src/text.rs
++++ b/crates/rune/src/text.rs
+@@ -116,8 +116,8 @@ pub(crate) use glyph_emit::GLIDE_PHASES;
+ use line_break::break_lines_with_blocks;
+ use span::PILL_BOX;
+ use system_fonts::{
+-    LoadedFiles, SYMBOL_FAMILIES, SYMBOL_FONT_FILES, family_list, load_families, load_installed, load_system_mono, named_list, names_system_mono,
+-    register_cjk_fallbacks, register_script_fallbacks,
++    LoadedFiles, family_list, load_families, load_installed, load_system_mono, named_list, names_system_mono,
++    register_script_fallbacks,
+ };
+ #[cfg(any(test, not(target_arch = "wasm32")))]
+ use system_fonts::system_font_files;
+@@ -180,6 +180,10 @@ pub struct TextSystem {
+     slot_system_mono: bool,
+     /// Bit `i` is set once `fallback::SCRIPT_FONTS[i]` has been looked up.
+     scripts: u64,
++    /// Whether the installed CJK fallbacks were loaded (on the first CJK text).
++    cjk: bool,
++    /// Whether the installed symbol families were loaded (on the first symbol text).
++    symbols: bool,
+     font_files: LoadedFiles,
+     /// The loaded system faces' families, for the face DirectWrite picks (`system_weight`).
+     system_faces: system_weight::Faces,
+@@ -299,10 +303,10 @@ impl TextSystem {
+             added.sort_unstable();
+             registered.extend(added);
+         }
+-        let mut font_files = LoadedFiles::new();
+-        register_cjk_fallbacks(&mut collection, &mut font_files, &registered, families);
+-        let symbol_families = load_families(&mut collection, SYMBOL_FONT_FILES, SYMBOL_FAMILIES);
+-        let emoji = symbol_families.iter().copied().find(|f| f.contains("Emoji"));
++        let font_files = LoadedFiles::new();
++        // Symbol and CJK families load when text first needs them: most launches never do.
++        let symbol_families = Vec::new();
++        let emoji = None;
+         #[cfg(target_arch = "wasm32")]
+         let families = if fonts.is_empty() { ("Inter", "IBM Plex Mono") } else { families };
+         let (sans, mono) = families::slots(families.0, families.1);
+@@ -328,6 +332,8 @@ impl TextSystem {
+             system_mono: None,
+             slot_system_mono: names_system_mono(families.0) || names_system_mono(families.1),
+             scripts: 0,
++            cjk: false,
++            symbols: false,
+             font_files,
+             system_faces: Default::default(),
+             installed: Default::default(),
+@@ -626,6 +632,12 @@ impl TextSystem {
+         };
+         let routes = fallback::routes(text);
+         if !text.is_ascii() {
++            if !self.cjk && text.chars().any(fallback::needs_cjk) {
++                self.load_cjk_fallbacks();
++            }
++            if !self.symbols && (text.chars().any(fallback::needs_symbols) || !routes.is_empty()) {
++                self.load_symbol_fallbacks();
++            }
+             let (mut scripts, mut symbols) = (0u64, false);
+             for ch in text.chars() {
+                 for (i, fonts) in fallback::SCRIPT_FONTS.iter().enumerate() {
+diff --git a/crates/rune/src/text/fallback.rs b/crates/rune/src/text/fallback.rs
+index 19c4179..fdcd44e 100644
+--- a/crates/rune/src/text/fallback.rs
++++ b/crates/rune/src/text/fallback.rs
+@@ -78,12 +78,20 @@ pub(super) const SCRIPT_FONTS: &[ScriptFonts] = &[
+     ScriptFonts { script: b"Thai", blocks: THAI, files: &["notosansthai", "tlwg", "freesans"] },
+ ];
+ 
++/// Whether `ch` is CJK text: Han, kana, Hangul, their punctuation and fullwidth forms.
++/// The installed CJK fonts are loaded the first time one of these shapes.
++pub(super) fn needs_cjk(ch: char) -> bool {
++    matches!(ch as u32,
++        0x1100..=0x11FF | 0x2E80..=0x2FFF | 0x3000..=0x30FF | 0x3100..=0x31FF
++        | 0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xA960..=0xA97F | 0xAC00..=0xD7AF
++        | 0xF900..=0xFAFF | 0xFE30..=0xFE4F | 0xFF00..=0xFFEF | 0x20000..=0x2FA1F)
++}
++
+ /// Whether `ch` is in a symbol block the eager symbol fallbacks often miss. General punctuation
+ /// and currency (dashes, quotes, €) are left out: Latin prose is full of them.
+ pub(super) fn needs_symbols(ch: char) -> bool {
+     matches!(ch as u32,
+-        0x2100..=0x2BFF | 0x2E00..=0x2E7F | 0x1D000..=0x1D7FF | 0x1F000..=0x1F0FF | 0x1F100..=0x1F1E5
+-        | 0x1F650..=0x1F67F | 0x1F700..=0x1F8FF | 0x1FA00..=0x1FA6F | 0x1FB00..=0x1FBFF)
++        0x2100..=0x2BFF | 0x2E00..=0x2E7F | 0x1D000..=0x1D7FF | 0x1F000..=0x1FAFF | 0x1FB00..=0x1FBFF)
+ }
+ 
+ /// Math alphanumerics, plus the Letterlike Symbols that fill that block's holes (`ℝ`, `ℎ`,
+diff --git a/crates/rune/src/text/families.rs b/crates/rune/src/text/families.rs
+index 45b1556..4c6bfea 100644
+--- a/crates/rune/src/text/families.rs
++++ b/crates/rune/src/text/families.rs
+@@ -2,6 +2,7 @@
+ 
+ use std::cell::RefCell;
+ 
++use super::system_fonts::{SYMBOL_FAMILIES, SYMBOL_FONT_FILES, load_families, register_cjk_fallbacks};
+ use super::{TextSystem, measure, names_system_mono};
+ 
+ thread_local! {
+@@ -32,6 +33,22 @@ pub(super) fn slots(sans: &str, mono: &str) -> (String, String) {
+ }
+ 
+ impl TextSystem {
++    /// Registers the installed CJK fonts on the first text that needs them.
++    pub(super) fn load_cjk_fallbacks(&mut self) {
++        if self.cjk { return; }
++        self.cjk = true;
++        let (sans, mono) = (self.families.0.clone(), self.families.1.clone());
++        register_cjk_fallbacks(&mut self.font_cx.collection, &mut self.font_files, &[], (&sans, &mono));
++    }
++
++    /// Registers the installed symbol and emoji families on the first text that needs them.
++    pub(super) fn load_symbol_fallbacks(&mut self) {
++        if self.symbols { return; }
++        self.symbols = true;
++        self.symbol_families = load_families(&mut self.font_cx.collection, SYMBOL_FONT_FILES, SYMBOL_FAMILIES);
++        self.emoji = self.symbol_families.iter().copied().find(|f| f.contains("Emoji"));
++    }
++
+     /// A window's or overlay's text system: in the families chosen for every window when the
+     /// app has chosen, else in `families`. Opening one after a switch then never sends
+     /// [`measure`](super::measure) back to the launch families.
+diff --git a/crates/rune/src/text/system_fonts.rs b/crates/rune/src/text/system_fonts.rs
+index 67ff117..cbcee9e 100644
+--- a/crates/rune/src/text/system_fonts.rs
++++ b/crates/rune/src/text/system_fonts.rs
+@@ -233,13 +233,21 @@ pub(super) fn system_font_files(_: &[&str]) -> Vec<std::path::PathBuf> { Vec::ne
+ #[cfg(not(target_arch = "wasm32"))]
+ pub(super) fn system_font_files(fragments: &[&str]) -> Vec<std::path::PathBuf> {
+     static FILES: std::sync::OnceLock<Vec<(String, std::path::PathBuf)>> = std::sync::OnceLock::new();
+-    let mut files: Vec<_> = FILES
+-        .get_or_init(walk_font_dirs)
+-        .iter()
+-        .filter_map(|(name, path)| Some((fragments.iter().position(|fragment| name.contains(fragment))?, path)))
+-        .collect();
++    let matching = |files: &[(String, std::path::PathBuf)]| -> Vec<(usize, std::path::PathBuf)> {
++        files
++            .iter()
++            .filter_map(|(name, path)| Some((fragments.iter().position(|fragment| name.contains(fragment))?, path.clone())))
++            .collect()
++    };
++    let mut files = matching(FILES.get_or_init(walk_font_dirs));
++    // Fontconfig also knows fonts outside the standard directories (NixOS store paths). Ask it
++    // only when the directories have none of the files, so a normal install never pays `fc-list`.
++    if files.is_empty() {
++        let mut seen: std::collections::HashSet<_> = files.iter().map(|(_, path)| path.clone()).collect();
++        files.extend(matching(fontconfig_files()).into_iter().filter(|(_, path)| seen.insert(path.clone())));
++    }
+     files.sort();
+-    files.into_iter().map(|(_, path)| path.clone()).collect()
++    files.into_iter().map(|(_, path)| path).collect()
+ }
+ 
+ #[cfg(not(target_arch = "wasm32"))]
+@@ -291,18 +299,28 @@ fn walk_font_dirs() -> Vec<(String, std::path::PathBuf)> {
+             }
+         }
+     }
+-    // Fontconfig knows fonts outside these directories, such as NixOS's store paths.
+-    #[cfg(all(unix, not(target_vendor = "apple"), not(target_os = "android")))]
+-    if let Ok(out) = std::process::Command::new("fc-list").arg("--format=%{file}\n").output() {
+-        for path in String::from_utf8_lossy(&out.stdout).lines().map(std::path::PathBuf::from) {
+-            if let Some(name) = font_file_name(&path) && seen.insert(path.clone()) {
+-                found.push((name, path));
+-            }
+-        }
+-    }
+     found
+ }
+ 
++/// The font files fontconfig knows, including ones outside the standard directories (NixOS's
++/// store paths); empty where fontconfig isn't used. [`system_font_files`] runs it only when the
++/// directories have none of the files.
++#[cfg(all(unix, not(target_vendor = "apple"), not(target_os = "android")))]
++fn fontconfig_files() -> &'static [(String, std::path::PathBuf)] {
++    static FILES: std::sync::OnceLock<Vec<(String, std::path::PathBuf)>> = std::sync::OnceLock::new();
++    FILES.get_or_init(|| {
++        let Ok(out) = std::process::Command::new("fc-list").arg("--format=%{file}\n").output() else { return Vec::new() };
++        let mut found = Vec::new();
++        for path in String::from_utf8_lossy(&out.stdout).lines().map(std::path::PathBuf::from) {
++            if let Some(name) = font_file_name(&path) { found.push((name, path)); }
++        }
++        found
++    })
++}
++
++#[cfg(not(all(unix, not(target_vendor = "apple"), not(target_os = "android"))))]
++fn fontconfig_files() -> &'static [(String, std::path::PathBuf)] { &[] }
++
+ /// `path`'s file name, lowercase without spaces and dots, when it's a font file Rune loads.
+ #[cfg(not(target_arch = "wasm32"))]
+ fn font_file_name(path: &std::path::Path) -> Option<String> {
+diff --git a/crates/rune/src/window.rs b/crates/rune/src/window.rs
+index 722c534..122f39e 100644
+--- a/crates/rune/src/window.rs
++++ b/crates/rune/src/window.rs
+@@ -440,6 +440,8 @@ struct Host<S: 'static> {
+     started: bool,
+     clock: FrameClock,
+     idle: bool,
++    /// Whether the desktop's motion preference was read (after the first frame on Linux).
++    prefs_read: bool,
+     mods: ModifiersState,
+     control_click: bool,
+     files: FileDrop,
+@@ -517,6 +519,9 @@ impl<S: 'static> Host<S> {
+         rt.app_ime.hook = on_ime;
+         rt.set_modifier_keys(modifier_keys);
+         rt.set_srgb_blend(srgb_blend); rt.set_font_smoothing(font_smoothing);
++        // The desktop's reduced-motion preference means loading GIO and its schemas on Linux;
++        // the first frame reads it after drawing instead (`Host::paint`).
++        #[cfg(target_os = "macos")]
+         rt.set_system_reduced_motion(crate::platform::preferences::reduced_motion());
+         rt.set_full_keyboard_access(crate::platform::preferences::full_keyboard_access());
+         rt.set_tab_visits_controls(tab_visits_controls);
+@@ -583,6 +588,7 @@ impl<S: 'static> Host<S> {
+             started: false,
+             clock: FrameClock::new(Instant::now()),
+             idle: true,
++            prefs_read: cfg!(target_os = "macos"),
+             mods: ModifiersState::empty(),
+             control_click: false,
+             files: FileDrop::default(),
+diff --git a/crates/rune/src/window/events.rs b/crates/rune/src/window/events.rs
+index 1003f32..8e84708 100644
+--- a/crates/rune/src/window/events.rs
++++ b/crates/rune/src/window/events.rs
+@@ -581,6 +581,11 @@ impl<S: 'static> Host<S> {
+         #[cfg(target_os = "windows")]
+         if let Some(l) = &self.win { sync_chrome(&mut self.rt, l, self.chrome, self.titlebar); }
+         self.redraw();
++        #[cfg(not(target_os = "macos"))]
++        if !self.prefs_read {
++            self.prefs_read = true;
++            self.rt.set_system_reduced_motion(crate::platform::preferences::reduced_motion());
++        }
+         self.shell(event_loop);
+         // What asked for a frame while it painted waits for the turn's end.
+         #[cfg(not(target_os = "macos"))]

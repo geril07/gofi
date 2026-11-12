@@ -276,13 +276,19 @@ Switching to a mode that has not been loaded runs that provider once (apps ~30 m
 run ~14 ms, clipboard ~15 ms) and keeps the items for the rest of the process.
 Clipboard IDs and previews never enter the frecency state.
 
+`research/rune-startup.patch` also makes Rune load CJK and symbol fallbacks, image
+decoder threads and the Linux reduced-motion preference on first use rather than
+at launch, and skips `fc-list` when the standard font directories have the files.
+Those cuts took one-shot `ready_ms` from 140/150 ms to 80/90 ms (rofi 58 ms).
+
 ## Process model (one-shot accepted)
 
 A one-shot process: Sway keybind runs `gofi`, window opens, selection launches and
 exits. This is simple and matches rofi. The real app measures **140 ms median
-readiness, p95 150 ms** (20 runs, nested Sway); release `hello` was 90 ms median.
-Rofi's full frame is 58 ms, so the resident daemon remains the next lever for
-parity (ADR 0007).
+readiness, p95 150 ms** with the pinned Rune, or **80/90 ms** with the startup
+patch (20 runs, nested Sway). Rofi's full frame is 58 ms. The remaining gap is
+fresh-process Vulkan init and the compositor's first configure, so the resident
+daemon remains the next lever for parity (ADR 0007).
 
 Single instance (ADR 0009): the process holds `$XDG_RUNTIME_DIR/gofi.lock` with
 `flock`. A second invocation reads the holder's PID and sends `SIGTERM` if

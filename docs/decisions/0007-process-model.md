@@ -55,3 +55,22 @@ after overlapping the mode provider with window/GPU setup and starting the GPU
 prewarm before `App::run` (was 170/180 ms). Rofi's full frame is 58 ms. The
 remaining gap is Rune/wgpu window creation and the first draw, so the resident
 daemon is the next lever if the owner wants rofi parity; it is not built yet.
+
+## Update 2026-11-13
+
+A Rune startup patch ([`research/rune-startup.patch`](../research/rune-startup.patch))
+took one-shot gofi from **140/150 ms to 80/90 ms** by removing eager work from the
+launch path: CJK and symbol fallbacks load on first use, `fc-list` runs only when
+the font directories have no match, image decoder threads start with the first
+request, the reduced-motion preference is read after the first frame, and adapter
+selection asks for an adapter before enumerating.
+
+Linux GPU prewarming was implemented and measured too. It hides the ~50 ms of
+Vulkan device and pipeline work behind window setup, but with the text work gone
+the window waits for the same ~50 ms, so `ready_ms` did not improve. It is not in
+the patch.
+
+Rofi's full frame is 58 ms. The remaining ~20 ms is fresh-process Vulkan
+instance/device/pipeline creation and the compositor's first configure. The
+resident daemon remains the only route to remove that floor: it keeps the device,
+renderer and providers warm and recreates only the surface per toggle.

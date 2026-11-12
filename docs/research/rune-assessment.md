@@ -129,3 +129,53 @@ Two framework gaps are real; the third is a perf question, not a bug.
 Border widths are not a limitation: `El::border(f32, color)` accepts any width.
 Text, bold spans, icons/SVG, layout, input, image caching and the headless
 runtime have all been sufficient.
+
+## Startup patch (2026-11-13)
+
+The real launcher paid for eager work Rune does on every launch. Measured under
+nested headless Sway with `scripts/measure-startup.sh --runs 20`:
+
+| build | median `ready_ms` | p95 |
+|---|---:|---:|
+| pinned Rune | 140 ms | 170 ms |
+| patched Rune | **80 ms** | **90 ms** |
+| rofi 2.0 | 58 ms | — |
+
+What dominated the launch, and what the patch changes:
+
+- **CJK fallbacks and `fc-list`**: `TextSystem::new` eagerly loaded up to 16
+  installed CJK files and ran `fc-list` (40 ms here) for symbol families. Lazy
+  per-script loading and a font-directory-first lookup took text setup from 81 ms
+  to 3 ms. CJK and emoji were verified with synthetic `.desktop` entries.
+- **Image workers**: `ImageCache::new` spawned four decoder threads (~14 ms).
+  They now start with the first image request.
+- **Reduced motion**: reading the Linux preference loads GIO and its schemas
+  (~10 ms) before the first frame. It is now read after the first frame and cached.
+- **Adapter pick**: `enumerate_adapters` measured 10–35 ms under nested Sway;
+  `request_adapter` measured 1.6 ms. The pick now tries the adapter first and
+  enumerates only when it is not the compositor's GPU.
+
+The patch is 9 files, 138 insertions, 35 deletions. It applies cleanly to the
+pinned checkout (`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with:
+
+```sh
+git -C <rune-checkout> checkout 04b38ae0a73bda03f010e97d2fff540ab91f67b0
+git -C <rune-checkout> apply docs/research/rune-startup.patch
+```
+
+`references/` is read-only to this project; apply it only in a writable Rune
+checkout. Committing the patch moves the Rune HEAD, so `scripts/check-rune.sh`
+and the pin need updating at the same time.
+
+Risks:
+
+- A first CJK or symbol/emoji string now pays the fallback load (~10–20 ms) on
+  that frame. A launcher with a Latin-only query never pays it.
+- `fc-list` is skipped when the standard directories have a matching file. A
+  system whose preferred font lives only in a fontconfig path outside those
+  directories can pick a lower-priority installed font; NixOS store paths still
+  work because the directory walk finds nothing and falls back to `fc-list`.
+- The reduced-motion preference is cached for the process, so a change while gofi
+  runs is not followed until the next launch.
+- The patch is not upstreamed; the repo still builds against the pinned
+  `references/rune`.
