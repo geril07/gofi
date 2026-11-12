@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # Verify the Rune checkout the build uses: vendor/rune at the pinned revision
-# with docs/research/rune-startup.patch applied. references/rune is the pristine
-# source clone; both must be at the pin.
+# with the local Rune patches in docs/research/rune-*.patch applied.
+# references/rune is the pristine source clone; both must be at the pin.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PIN="04b38ae0a73bda03f010e97d2fff540ab91f67b0"
 REF="$ROOT/references/rune"
 VENDOR="$ROOT/vendor/rune"
-PATCH="$ROOT/docs/research/rune-startup.patch"
 CARGO="$ROOT/crates/gofi/Cargo.toml"
 
 die() {
@@ -17,7 +16,10 @@ die() {
   exit 1
 }
 
-[ -f "$PATCH" ] || die "missing $PATCH"
+shopt -s nullglob
+PATCHES=("$ROOT"/docs/research/rune-*.patch)
+shopt -u nullglob
+[ "${#PATCHES[@]}" -gt 0 ] || die "no Rune patches in docs/research"
 [ -f "$CARGO" ] || die "missing $CARGO"
 grep -q 'path = "../../vendor/rune/crates/rune"' "$CARGO" ||
   die "crates/gofi/Cargo.toml does not point at vendor/rune"
@@ -30,5 +32,7 @@ for pair in "references/rune:$REF" "vendor/rune:$VENDOR"; do
   [ "$HEAD" = "$PIN" ] || die "$name is at $HEAD, expected $PIN"
 done
 
-git -C "$VENDOR" apply --reverse --check "$PATCH" >/dev/null 2>&1 ||
-  die "the startup patch is not applied to vendor/rune"
+for PATCH in "${PATCHES[@]}"; do
+  git -C "$VENDOR" apply --reverse --check "$PATCH" >/dev/null 2>&1 ||
+    die "$(basename "$PATCH") is not applied to vendor/rune"
+done

@@ -266,8 +266,9 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 
 Match highlights come from `Ranked::positions`, which are **character** indices
 into the title; the view maps them to UTF-8 byte ranges and merges adjacent
-characters into one span, drawn bold with a single underline like rofi's default
-`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`. Apps match `Name` only — rofi's
+characters into one span, drawn bold with a 2 px underline like rofi's default
+`ROFI_HL_BOLD | ROFI_HL_UNDERLINE` (Rune's default 1 px is raised through the
+local `Span::underline_width` patch). Apps match `Name` only — rofi's
 `drun-match-fields: name` — so every row has visible highlight characters.
 
 Mode loading is lazy: the CLI mode starts loading on a thread in `init` and the

@@ -104,7 +104,8 @@ remaining unknown is IME/composed input; it needs a real session test.
 
 ## Fork tradeoffs (2026-11-11)
 
-Two framework gaps are real; the third is a perf question, not a bug.
+One framework gap remains. The underline gap is closed by a local patch, and
+startup is a perf question, not a bug.
 
 1. **Layer-shell as the launcher window.** Rune's layer-shell is overlay-only:
    the surface is created with `KeyboardInteractivity::None`; `request_keys()`
@@ -115,9 +116,12 @@ Two framework gaps are real; the third is a perf question, not a bug.
    not the HUD runtime. This is the one functional fork/upstream candidate: it
    removes the Sway rule, places the panel at rofi's exact y, and works on other
    wlroots compositors.
-2. **Underline thickness.** `Span::underline` draws `scale.max(1.0)` px and has
-   no width option; rofi/Pango derives ~2 px from the font. A small upstream
-   change (font metrics or a span width) closes it.
+2. **Underline thickness (closed 2026-11-13).** `Span::underline` drew
+   `scale.max(1.0)` px and had no width option; rofi/Pango draws 2 px. The local
+   `rune-underline.patch` adds `Span::underline_width(points)`, and gofi sets
+   `2.0`, giving 2 px at 1x and 4 px at 1.5x. Evidence:
+   `target/evidence/underline-installed/typed.png` and
+   `target/evidence/underline-scale-1.5/typed.png`.
 3. **Startup.** Rune already prewarms the GPU on a thread and supports
    `keep_running` plus hidden-window reuse. The 126 ms first frame is ~4 ms
    connect, ~64 ms init and window creation (including ~20 ms of app data),
@@ -165,8 +169,8 @@ The patch is 9 files, 138 insertions, 35 deletions. The repo carries it as a
 build step:
 
 ```sh
-just setup-rune   # clone references/rune into vendor/rune, apply the patch
-just check-rune   # verify the pin and the applied patch
+just setup-rune   # clone references/rune into vendor/rune, apply every patch
+just check-rune   # verify the pin and every applied patch
 ```
 
 `scripts/setup-rune.sh` creates the gitignored `vendor/rune` from the pristine
@@ -183,4 +187,5 @@ Risks:
   work because the directory walk finds nothing and falls back to `fc-list`.
 - The reduced-motion preference is cached for the process, so a change while gofi
   runs is not followed until the next launch.
-- The patch is carried locally by `scripts/setup-rune.sh` and is not upstreamed.
+- The patches are carried locally by `scripts/setup-rune.sh` and are not
+  upstreamed.

@@ -486,6 +486,7 @@ fn underline_spans_merge_runs_and_count_bytes() {
     assert_eq!((merged[0].start, merged[0].end), (0, 4));
     assert_eq!(merged[0].weight, Some(700.0), "matched text is bold");
     assert!(merged[0].underline.is_some(), "matched text is underlined");
+    assert_eq!(merged[0].underline_width, 2.0, "rofi's 2 px underline");
 
     let split = match_spans("Firefox", &[0, 2], ink);
     assert_eq!(split.len(), 2);

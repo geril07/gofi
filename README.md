@@ -17,11 +17,12 @@ override a clearly better match.
 
 ## Build and run
 
-Rune is carried as a local patch: the pinned upstream needs startup work gofi
-depends on. `references/rune` is the pristine clone; the build uses a scratch
-checkout at `vendor/rune` with
-[`docs/research/rune-startup.patch`](docs/research/rune-startup.patch) applied.
-`just build` and `just check` run the setup automatically.
+Rune is carried as local patches: the pinned upstream needs startup work gofi
+depends on and a 2 px match underline. `references/rune` is the pristine clone; the build uses a scratch
+checkout at `vendor/rune` with the local patches in
+[`docs/research/`](docs/research/) applied (`rune-startup.patch`,
+`rune-underline.patch`). `just build` and `just check` run the setup
+automatically.
 
 ```sh
 git clone https://github.com/anomalyco/rune references/rune
@@ -106,8 +107,9 @@ the nested-headless-Sway checks; `just measure` records startup.
 
 - `references/rune` — Rune at `04b38ae0a73bda03f010e97d2fff540ab91f67b0`, kept
   pristine.
-- `vendor/rune` (gitignored) — the same revision with the startup patch applied;
-  `just setup-rune` creates it. `just check-rune` verifies both.
+- `vendor/rune` (gitignored) — the same revision with the local patches applied;
+  `just setup-rune` creates it. `just check-rune` verifies the pin and every
+  patch.
 - `references/rofi-src` — rofi 2.0.0 source.
 - `references/rofi` — the user's current rofi config.
 - `references/sway` — the user's current Sway config.

@@ -147,11 +147,18 @@
     [`research/rune-startup.patch`](research/rune-startup.patch). The remaining
     fixed cost is Rune/wgpu's fresh-process GPU init and the compositor's first
     configure, which the resident daemon would amortize.
-  - The patch is now the build dependency: `scripts/setup-rune.sh` creates the
-    gitignored `vendor/rune` from `references/rune` and applies the patch;
-    `just build`/`just check` run it. `~/.local/bin/gofi` is the 80 ms build,
-    `references/rune` stays pristine, and `just check-rune` verifies both.
-    Upstreaming the Rune patch is deferred.
+  - Underline fixed with a second Rune patch: `Span::underline_width` lets a
+    span name its thickness in points, and gofi's matched spans use 2 points.
+    At 1x the line is 2 px like rofi's; at 1.5x it is 4 px. Evidence:
+    `target/evidence/underline-installed/typed.png` (1x) and
+    `target/evidence/underline-scale-1.5/typed.png`. Patch:
+    [`research/rune-underline.patch`](research/rune-underline.patch).
+  - The patches are now the build dependency: `scripts/setup-rune.sh` creates the
+    gitignored `vendor/rune` from `references/rune` and applies every
+    `docs/research/rune-*.patch`; `just build`/`just check` run it.
+    `~/.local/bin/gofi` is the 80 ms build, `references/rune` stays pristine, and
+    `just check-rune` verifies the pin and every patch. Upstreaming the Rune
+    patches is deferred.
 
 ## In progress
 
@@ -190,7 +197,7 @@ None hard.
 - Clipboard previews are sensitive; never log them or persist them. The provider
   streams decode → wl-copy. E2E screenshots contain only synthetic test strings.
 - Rune is pre-release; API churn is expected. The revision is pinned and
-  `scripts/check-rune.sh` enforces it and the startup patch.
+  `scripts/check-rune.sh` enforces it and the local patches.
 - Layer-shell immediate keyboard focus is not available; the ordinary-window path is
   the workaround (ADR 0003). The window is 1 px above rofi's y on a 1080p output.
 

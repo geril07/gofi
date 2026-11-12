@@ -35,6 +35,8 @@ const TAB_W: f32 = 100.0;
 const TAB_GAP: f32 = 20.0;
 const ICON: f32 = 32.0;
 const SCROLLBAR_W: f32 = 8.0;
+/// Rofi/Pango draw matched text with a 2 px underline at 1x; Rune's default is 1 px.
+const MATCH_UNDERLINE_W: f32 = 2.0;
 
 /// rofi asks Pango for `JetBrainsMono 16`, i.e. 16 pt at 96 DPI = 21.33 px.
 /// JetBrains Mono is embedded so startup does not pay a fontconfig lookup.
@@ -885,7 +887,10 @@ fn match_spans(title: &str, positions: &[u32], ink: Color) -> Vec<Span> {
 }
 
 fn highlighted(start: usize, end: usize, ink: Color) -> Span {
-    Span::new(start, end).weight(700.0).underline(ink)
+    Span::new(start, end)
+        .weight(700.0)
+        .underline(ink)
+        .underline_width(MATCH_UNDERLINE_W)
 }
 
 fn scrollbar(state: &AppState, palette: &Palette) -> El {

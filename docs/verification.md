@@ -283,30 +283,52 @@ renderer and providers warm.
 
 Verification: `just check` green (80 tests), both nested-Sway e2e scripts pass,
 CJK and emoji screenshots captured in `target/evidence/rune-patch-cjk/` and
-`target/evidence/emoji/`. The patch applies cleanly to the pinned Rune checkout
-(`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with `git apply`.
+`target/evidence/emoji/`. Both patches apply cleanly to the pinned Rune
+checkout (`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with `git apply`.
 
 It is carried in the build, not upstreamed: `scripts/setup-rune.sh` clones the
-pinned `references/rune` into the gitignored `vendor/rune` and applies the
-patch; `crates/gofi/Cargo.toml` points there. `just build` and `just check` run
-the setup. `just check-rune` verifies the pin and that the patch is applied.
+pinned `references/rune` into the gitignored `vendor/rune` and applies every
+`docs/research/rune-*.patch`; `crates/gofi/Cargo.toml` points there. `just
+build` and `just check` run the setup. `just check-rune` verifies the pin and
+every patch.
 
 ### Vendored build and install (2026-11-13)
 
 - `just setup-rune` creates `vendor/rune` from `references/rune` at
   `04b38ae0a73bda03f010e97d2fff540ab91f67b0` and applies
-  `research/rune-startup.patch` (9 files, 138 insertions). `vendor/` is
-  gitignored; the patch is the tracked artifact.
+  `research/rune-startup.patch` (9 files, 138 insertions) and
+  `research/rune-underline.patch` (2 files, 17 insertions). `vendor/` is
+  gitignored; the patches are the tracked artifacts.
 - `crates/gofi/Cargo.toml` points at `../../vendor/rune/crates/rune`, so the
   build cannot silently fall back to the unpatched reference. The gofi workspace
   excludes `vendor` so Rune keeps its own workspace root.
 - `just install` installed `~/.local/bin/gofi` (35.9 MB, sha256
-  `5509bdf6…`). The build measures **80 ms median / 90 ms p95** (20 runs); the
-  installed copy measured **85/90 ms** (12 runs), within session noise.
+  `0f185a77…`). The build measures **80 ms median / 90 ms p95** (20 runs); the
+  installed copy measured **80/90 ms** (12 runs).
 - The installed copy passes `scripts/e2e-sway.sh` and `scripts/e2e-launch.sh`
-  (`target/evidence/vendor-install*`), and a CJK query renders
-  (`target/evidence/vendor-cjk/typed.png`).
-- `just check` green (80 tests). Upstreaming the Rune patch is deferred.
+  (`target/evidence/underline-installed*`), and a CJK query renders
+  (`target/evidence/underline-installed-cjk/typed.png`).
+- `just check` green (80 tests). Upstreaming the Rune patches is deferred.
+
+### Underline patch (2026-11-13)
+
+Rofi draws matched text with a **2 px** underline at 1x; Pango reports
+`underline_thickness = 2 px` for JetBrains Mono at 16 pt. Rune's `Span::underline`
+drew `scale.max(1.0)` (1 px) and had no width option, so gofi's highlight looked
+thinner than rofi's.
+
+`research/rune-underline.patch` adds `Span::underline_width(points)`; the default
+stays one device pixel. gofi's matched spans use `2.0` points:
+
+- 1x (1920×1080): gofi's underline is rows 415-416, **2 px**; rofi's is rows
+  416-417, 2 px. Evidence: `target/evidence/underline-installed/typed.png`.
+- 1.5x (2560×1600): gofi's underline is rows 612-615, **4 px**; rofi's is rows
+  613-616, 4 px. Evidence: `target/evidence/underline-scale-1.5/typed.png`.
+- The line sits 1 px higher than rofi's at both scales. The patch changes
+  thickness only; position still uses Rune's fixed `2 * scale` offset.
+- Both e2e suites pass; `just check` is green (80 tests). `just setup-rune`
+  applies the underline patch after the startup patch; `just check-rune` verifies
+  both.
 
 ## M1 result (2026-11-11)
 

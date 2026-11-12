@@ -1,0 +1,61 @@
+diff --git a/crates/rune/src/text/decorations.rs b/crates/rune/src/text/decorations.rs
+index 2bf4c33..3ea230c 100644
+--- a/crates/rune/src/text/decorations.rs
++++ b/crates/rune/src/text/decorations.rs
+@@ -131,7 +131,13 @@ impl TextSystem {
+                 if let Some(uc) = s.underline.filter(|c| c.a > 0.0) {
+                     let y = (origin[1] + m.baseline + 2.0 * scale).round();
+                     let (l, r) = underline_edges(&line, origin[0], gr.offset(), gr.offset() + w);
+-                    out.push(D::new(Deco { rect: [l, y, r - l, scale.max(1.0)], color: uc, radius: 0.0 }, None, 0));
++                    // One device pixel by default; a span may name a heavier line in points.
++                    let thickness = if s.underline_width > 0.0 {
++                        (s.underline_width * scale).round().max(1.0)
++                    } else {
++                        scale.max(1.0)
++                    };
++                    out.push(D::new(Deco { rect: [l, y, r - l, thickness], color: uc, radius: 0.0 }, None, 0));
+                 }
+             }
+         }
+diff --git a/crates/rune/src/text/span.rs b/crates/rune/src/text/span.rs
+index 04c7f64..61991a5 100644
+--- a/crates/rune/src/text/span.rs
++++ b/crates/rune/src/text/span.rs
+@@ -19,6 +19,8 @@ pub struct Span {
+     pub bg: Option<Color>,
+     pub bg_pad: f32,
+     pub underline: Option<Color>,
++    /// Underline width in points; 0 keeps the default one device pixel.
++    pub underline_width: f32,
+     /// The family's italic face, or a synthetic oblique when it has none.
+     pub italic: bool,
+ }
+@@ -70,6 +72,12 @@ impl Span {
+         self.underline = Some(color);
+         self
+     }
++
++    /// Underline width in points, drawn as device pixels after the window scale.
++    pub fn underline_width(mut self, width: f32) -> Span {
++        self.underline_width = width.max(0.0);
++        self
++    }
+ }
+ 
+ /// An atomic pill drawn as a chip: byte range `start..end` of the content, and its leading icon.
+@@ -179,6 +187,7 @@ pub(crate) fn flatten_spans(spans: &[Span]) -> Vec<Span> {
+             }
+             if s.underline.is_some() {
+                 m.underline = s.underline;
++                m.underline_width = s.underline_width;
+             }
+             m.italic |= s.italic;
+         }
+@@ -192,6 +201,7 @@ pub(crate) fn flatten_spans(spans: &[Span]) -> Vec<Span> {
+                 && last.bg == m.bg
+                 && last.bg_pad == m.bg_pad
+                 && last.underline == m.underline
++                && last.underline_width == m.underline_width
+                 && last.italic == m.italic
+             {
+                 last.end = m.end;
