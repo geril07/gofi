@@ -47,3 +47,11 @@ and normal focus. That costs a window + surface creation, but not a GPU device.
 - The owner reports the launcher feels slow even when cold start is within budget
   (then the bottleneck is elsewhere, e.g. window mapping or compositor animation).
 - Focus-on-reopen becomes unreliable enough to need a resident process.
+
+## Update 2026-11-12
+
+One-shot gofi measured **140 ms median ready, p95 150 ms** under nested Sway
+after overlapping the mode provider with window/GPU setup and starting the GPU
+prewarm before `App::run` (was 170/180 ms). Rofi's full frame is 58 ms. The
+remaining gap is Rune/wgpu window creation and the first draw, so the resident
+daemon is the next lever if the owner wants rofi parity; it is not built yet.

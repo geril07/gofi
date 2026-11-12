@@ -9,12 +9,13 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::sync::mpsc::{Receiver, channel};
 
 use gofi_core::providers::{AppsProvider, ClipboardProvider, RunProvider};
 use gofi_core::ranking::frecency::now_secs;
 use gofi_core::ranking::{Ranked, Ranker};
 use gofi_core::store::State;
-use gofi_core::{Action, Env, Item, ItemId, ItemKind, Mode, Provider};
+use gofi_core::{Action, Env, Item, ItemId, ItemKind, Loaded, Mode, Provider, ProviderError};
 use rune::tok::TextStyle;
 use rune::{
     App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, LineCap, Shape, Span, TextEdit,
@@ -93,10 +94,15 @@ impl Palette {
     }
 }
 
-#[derive(Clone)]
 pub struct Config {
     pub env: Env,
     pub mode: Mode,
+}
+
+/// Items loaded off the UI thread, waiting for the first frame.
+struct Preloaded {
+    state: State,
+    loaded: Result<Loaded, ProviderError>,
 }
 
 static CONFIG: OnceLock<Config> = OnceLock::new();
@@ -105,14 +111,17 @@ pub fn set_config(config: Config) {
 }
 
 pub fn run() {
+    crate::trace("ui::run");
     // Ask Sway for the focused output's width so the first frame is already the
     // size its 50% rule wants; otherwise the rule resizes it visibly on a scaled
     // output.
     let width = crate::sway::panel_width().unwrap_or(PANEL_W);
+    crate::trace("size");
     let spec = AppSpec {
         fonts: FONTS,
         families: ("JetBrains Mono", "JetBrains Mono"),
         setup: Some(|state: &mut AppState, waker| state.setup_images(waker)),
+        poll: Some(|state, _now, _tx| state.poll_preload()),
         ..AppSpec::new("gofi", (width, PANEL_H), init, view)
     };
     App::new(spec)
@@ -126,6 +135,7 @@ pub fn run() {
             }
             .into(),
         )
+        .on_ready(|_| crate::trace("on_ready"))
         .on_focus(|_: &mut AppState, focused, tx| {
             if !focused {
                 tx.close_window();
@@ -135,8 +145,36 @@ pub fn run() {
 }
 
 fn init() -> AppState {
+    crate::trace("init");
     let config = CONFIG.get().expect("ui::set_config runs before the app");
-    AppState::new(config.env.clone(), config.mode)
+    let env = config.env.clone();
+    let mode = config.mode;
+    let state = AppState::loading(env.clone(), mode, preload(env, mode));
+    crate::trace("init_done");
+    state
+}
+
+/// Loads the selected mode on a thread as early as possible. `poll_preload`
+/// takes the result on the first frame; if it is not ready yet, it waits there,
+/// after the window and GPU have been set up, instead of in `init`.
+fn preload(env: Env, mode: Mode) -> Receiver<Preloaded> {
+    let (tx, rx) = channel();
+    std::thread::spawn(move || {
+        crate::trace("preload_start");
+        let state = State::load(&env);
+        let loaded = load_items(&env, mode);
+        let _ = tx.send(Preloaded { state, loaded });
+        crate::trace("preload_ready");
+    });
+    rx
+}
+
+fn load_items(env: &Env, mode: Mode) -> Result<Loaded, ProviderError> {
+    match mode {
+        Mode::Apps => AppsProvider::new(env.clone()).load(),
+        Mode::Run => RunProvider::new(env.clone()).load(),
+        Mode::Clipboard => ClipboardProvider::new("cliphist").load(),
+    }
 }
 
 pub struct AppState {
@@ -152,18 +190,17 @@ pub struct AppState {
     cache: Option<ImageCache>,
     notice: Option<String>,
     ranker: Ranker,
+    preload: Option<Receiver<Preloaded>>,
 }
 
 impl AppState {
-    pub fn new(env: Env, mode: Mode) -> Self {
-        let mut state = Self::empty(env, mode);
-        state.load_mode(mode);
-        state.rerank();
+    fn loading(env: Env, mode: Mode, preload: Receiver<Preloaded>) -> Self {
+        let mut state = Self::empty(env, mode, State::default());
+        state.preload = Some(preload);
         state
     }
 
-    fn empty(env: Env, mode: Mode) -> Self {
-        let frecency = State::load(&env);
+    fn empty(env: Env, mode: Mode, frecency: State) -> Self {
         let mut query = TextEdit::new("");
         query.focused = true;
         Self {
@@ -179,6 +216,7 @@ impl AppState {
             cache: None,
             notice: None,
             ranker: Ranker::new(),
+            preload: None,
         }
     }
 
@@ -190,11 +228,11 @@ impl AppState {
         if self.items.contains_key(&mode) {
             return;
         }
-        let loaded = match mode {
-            Mode::Apps => AppsProvider::new(self.env.clone()).load(),
-            Mode::Run => RunProvider::new(self.env.clone()).load(),
-            Mode::Clipboard => ClipboardProvider::new("cliphist").load(),
-        };
+        let loaded = load_items(&self.env, mode);
+        self.apply_loaded(mode, loaded);
+    }
+
+    fn apply_loaded(&mut self, mode: Mode, loaded: Result<Loaded, ProviderError>) {
         match loaded {
             Ok(loaded) => {
                 for warning in &loaded.warnings {
@@ -208,6 +246,26 @@ impl AppState {
                 self.items.insert(mode, Vec::new());
             }
         }
+    }
+
+    /// Takes the background load on the first frame, so the scan runs while
+    /// Rune creates the window and the GPU. Returns whether state changed.
+    fn poll_preload(&mut self) -> bool {
+        let Some(preload) = self.preload.take() else {
+            return false;
+        };
+        crate::trace("preload_wait");
+        match preload.recv() {
+            Ok(preloaded) => {
+                self.frecency = preloaded.state;
+                self.apply_loaded(self.mode, preloaded.loaded);
+            }
+            // The loader panicked; load here so the launcher still works.
+            Err(_) => self.load_mode(self.mode),
+        }
+        self.rerank();
+        crate::trace("preload_done");
+        true
     }
 
     fn rerank(&mut self) {
@@ -403,7 +461,7 @@ impl AppState {
 
     #[cfg(test)]
     fn for_test(env: Env, mode: Mode, items: Vec<Item>) -> Self {
-        let mut state = Self::empty(env, mode);
+        let mut state = Self::empty(env, mode, State::default());
         state.items.insert(mode, items);
         state.rerank();
         state

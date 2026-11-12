@@ -131,12 +131,13 @@
     and the list shrinks, so the scrollbar sits at the same x as apps/run.
   - Startup asks Sway for the focused output's width and requests half of it, so
     the 50% rule no longer resizes the first frame (853 on the 1.5 output).
-    Sway IPC parsing tests; **79 tests** total.
+    Sway IPC parsing tests; **80 tests** total.
   - `just install` copies the release binary to `~/.local/bin/gofi`; the installed
     copy passes both nested-Sway e2e scripts. Sway config remains the owner's step.
-  - Startup re-measured after caching the theme chain and directory lists:
-    apps **median 300 ms, p95 330 ms** over 20 runs; still inside the 400 ms p95
-    target. The first two runs were 140–180 ms (warm page cache).
+  - Startup optimized: the mode provider loads on a thread from `init` and the
+    first frame takes the result, and `rune::prewarm_gpu()` starts before
+    `App::run`. `ready_ms` is **140 ms median, 150 ms p95** over 20 runs (was
+    170/180). **80 tests** total.
 
 ## In progress
 
@@ -150,6 +151,9 @@ Nothing. **M4 — Sway integration and daily use — is next.**
 2. **Daily-use checklist** for one week, keeping rofi as the fallback.
 3. **Polish from real use**: IME check, any ranking/look adjustments, then
    review and independent verification.
+4. **Startup parity**: one-shot is 140 ms vs rofi's 58 ms. Decide whether to build
+   the resident daemon (ADR 0007) or pursue Rune-side startup work (pipeline cache,
+   window creation).
 
 ## Blockers
 
@@ -159,8 +163,9 @@ None hard.
 
 - Cold start is measured under nested headless Sway. The client renders with the
   real GPU (RADV), while the harness compositor uses pixman; only presentation is
-  software-composited. First frame is ~126 ms (rofi 58 ms); the ~100 ms UI slice
-  is Rune/wgpu init and the first draw, not icons. Re-measure on the owner's
+  software-composited. First frame is now **140 ms median, p95 150 ms** (rofi's
+  full frame 58 ms). The remaining ~70 ms is Rune/wgpu window creation and the
+  first draw; the provider is off the critical path. Re-measure on the owner's
   Swayfx session before promising the p95.
 - The icons provider resolves every icon eagerly at startup, but the theme-chain
   index makes it ~20 ms regardless of app count. If that ever matters, resolve

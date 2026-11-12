@@ -270,16 +270,19 @@ characters into one span, drawn bold with a single underline like rofi's default
 `ROFI_HL_BOLD | ROFI_HL_UNDERLINE`. Apps match `Name` only — rofi's
 `drun-match-fields: name` — so every row has visible highlight characters.
 
-Mode loading is lazy: the CLI mode loads at startup; switching to a mode that has not
-been loaded runs that provider once (apps ~30 ms, run ~14 ms, clipboard ~15 ms) and
-keeps the items for the rest of the process. Clipboard IDs and previews never enter
-the frecency state.
+Mode loading is lazy: the CLI mode starts loading on a thread in `init` and the
+first `poll` takes the result, so the scan overlaps Rune's window and GPU setup.
+Switching to a mode that has not been loaded runs that provider once (apps ~30 ms,
+run ~14 ms, clipboard ~15 ms) and keeps the items for the rest of the process.
+Clipboard IDs and previews never enter the frecency state.
 
 ## Process model (one-shot accepted)
 
 A one-shot process: Sway keybind runs `gofi`, window opens, selection launches and
-exits. This is simple and matches rofi. Release `hello` measured 90 ms median
-readiness (240 ms first run); the real app must be measured again.
+exits. This is simple and matches rofi. The real app measures **140 ms median
+readiness, p95 150 ms** (20 runs, nested Sway); release `hello` was 90 ms median.
+Rofi's full frame is 58 ms, so the resident daemon remains the next lever for
+parity (ADR 0007).
 
 Single instance (ADR 0009): the process holds `$XDG_RUNTIME_DIR/gofi.lock` with
 `flock`. A second invocation reads the holder's PID and sends `SIGTERM` if

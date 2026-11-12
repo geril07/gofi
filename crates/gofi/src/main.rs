@@ -28,6 +28,20 @@ use gofi_core::ranking::rank;
 use gofi_core::store::State;
 use gofi_core::{Env, ItemKind, Mode, Provider};
 
+/// `GOFI_TRACE=1` prints wall-clock phase markers for startup measurements.
+pub(crate) fn trace(label: &str) {
+    if std::env::var_os("GOFI_TRACE").is_some() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default();
+        eprintln!(
+            "gofi-trace {label} {}.{:06}",
+            now.as_secs(),
+            now.subsec_micros()
+        );
+    }
+}
+
 #[derive(Debug)]
 struct Args {
     dump: bool,
@@ -100,6 +114,7 @@ struct DumpItem {
 }
 
 fn main() -> ExitCode {
+    trace("main");
     let args = match Args::parse(std::env::args().skip(1)) {
         Ok(args) => args,
         Err(error) => {
@@ -132,6 +147,7 @@ fn main() -> ExitCode {
 }
 
 fn run_ui(mode: Mode) -> Result<(), String> {
+    trace("run_ui");
     let env = Env::from_process();
     match instance::claim(env.runtime_dir.as_deref()) {
         instance::Claim::AlreadyRunning { pid } => {
@@ -142,6 +158,10 @@ fn run_ui(mode: Mode) -> Result<(), String> {
             Ok(())
         }
         instance::Claim::Owner(guard) => {
+            trace("claim");
+            // Start the GPU prewarm before the event loop does, so it overlaps the
+            // Sway query, font setup and the window's creation.
+            rune::prewarm_gpu();
             ui::set_config(ui::Config { env, mode });
             rune::set_app_id("gofi");
             ui::run();

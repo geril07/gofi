@@ -161,7 +161,7 @@ bug is only visible in a real window, add it to the e2e suite.
   of it. On 2560×1600 @ 1.5 the first mapped frame was already **853×495** (before,
   960 then 853 one frame later); on 1920×1080 it was **960×495**. Logs:
   `target/evidence/no-resize/scaled.log`, `target/evidence/no-resize/hd.log`.
-- `just check` green (79 tests).
+- `just check` green (80 tests).
 
 ## Startup breakdown (2026-11-11)
 
@@ -180,6 +180,34 @@ The `connect → window` slice includes the app provider and icon index (about
 20 ms; `--dump` is 17 ms without icons and 23 ms with). Rune prewarms the GPU on
 a thread; the rest is winit/font/window setup, wgpu device and swapchain,
 pipelines and the first draw. Rofi 2.0 in the same session: 57.9 ms median.
+
+## Startup optimization (2026-11-12)
+
+`ready_ms` is process start → Rune's first `on_ready`, measured under nested
+headless Sway with `scripts/measure-startup.sh --runs 20`:
+
+| | median | p95 |
+|---|---|---|
+| before | 170 ms | 180 ms |
+| after | **140 ms** | **150 ms** |
+
+What changed:
+
+- `init` starts the mode provider on a thread and returns; the first `poll` takes
+  the result. The scan (~20 ms warm, ~30 ms cold) now overlaps Rune's window and
+  GPU setup instead of blocking `init`.
+- `rune::prewarm_gpu()` runs in `run_ui` before `App::run`, so wgpu device and
+  renderer creation start earlier.
+
+The remaining phase split (`WAYLAND_DEBUG=1`, 10 runs, logging overhead included)
+is spawn → connect 3.4 ms, connect → xdg_surface 64.5 ms, xdg → first buffer
+68.3 ms, buffer → commit 12.5 ms. The app-side work is no longer on the critical
+path. Rofi 2.0's full frame was measured at 58 ms; one-shot gofi is still about
+2x that. The next lever is the resident daemon (ADR 0007), not more provider
+work.
+
+`GOFI_TRACE=1 gofi` prints wall-clock markers for `main`, `init`, the preload and
+`on_ready`; `WAYLAND_DEBUG=1` adds the protocol phases.
 
 ## M1 result (2026-11-11)
 

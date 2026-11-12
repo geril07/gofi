@@ -2,7 +2,8 @@
 
 use std::ffi::OsString;
 
-use gofi_core::{Action, Env, Item, ItemId, ItemKind, Mode};
+use gofi_core::store::State;
+use gofi_core::{Action, Env, Item, ItemId, ItemKind, Loaded, Mode};
 use rune::{Env as RuneEnv, Key, KeyEvent, Mods, Runtime};
 use tempfile::TempDir;
 
@@ -513,4 +514,29 @@ fn a_failed_launch_keeps_the_window_open_and_shows_a_notice() {
 
     let notice = runtime.state.notice.as_deref().expect("a notice");
     assert!(notice.contains("could not launch"), "{notice}");
+}
+
+#[test]
+fn preload_installs_items_on_the_first_poll() {
+    let temp = TempDir::new().unwrap();
+    let env = Env::for_test(temp.path());
+    let (tx, rx) = std::sync::mpsc::channel();
+    tx.send(Preloaded {
+        state: State::default(),
+        loaded: Ok(Loaded {
+            items: vec![app("preloaded", "Preloaded App")],
+            warnings: Vec::new(),
+        }),
+    })
+    .unwrap();
+
+    let mut state = AppState::loading(env, Mode::Apps, rx);
+    assert!(state.items.is_empty(), "nothing is loaded before the poll");
+    assert!(state.poll_preload(), "the first poll takes the preload");
+    assert_eq!(state.items[&Mode::Apps].len(), 1);
+    assert_eq!(state.ranked.len(), 1);
+    assert!(
+        !state.poll_preload(),
+        "later polls do not take the preload again"
+    );
 }
