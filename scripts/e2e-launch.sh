@@ -59,7 +59,7 @@ fail() {
 cat > "$RT/config" <<'EOF'
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="gofi"] floating enable, border none, move position center, resize set 50 ppt 495 px
+for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center
 EOF
 
 env -u SWAYSOCK -u I3SOCK \

@@ -131,6 +131,24 @@ bug is only visible in a real window, add it to the e2e suite.
   (`scale.max(1.0)`), so the bold run is what closes the visual gap.
 - `just check` green (76 tests).
 
+## Install and real-config result (2026-11-12)
+
+- Installed at `~/.local/bin/gofi` with `just install`. The installed copy passes
+  both e2e scripts (`target/evidence/install-apps/`,
+  `target/evidence/install-actions/`).
+- Ran the installed binary under nested Sway with the owner's actual config
+  (startup and local `exec` includes commented out). The original rule
+  `move position center` centred in the workspace, not the output: `gaps inner 8`
+  made the window **952×495 at 484,310** instead of rofi's 960×495 at 480,293.
+- The rule is now `resize set 50 ppt 495 px, resize grow width 8 px,
+  move absolute position center`. Measured **960×495 at 480,292** on 1920×1080
+  and **853×495 at 426,285** on 2560×1600 @ 1.5, matching rofi. The `grow` term
+  cancels this config's gap inset; `move absolute position center` is the part
+  that removes the bar-induced vertical shift, and the README documents both.
+- Typing `fire` shows Firefox bold and underlined, and Escape closes the window:
+  `target/evidence/real-config/typed.png`.
+- `just check` green (76 tests).
+
 ## Startup breakdown (2026-11-11)
 
 Spawn → first buffer commit, 12 runs, nested headless Sway. The client renders
@@ -230,7 +248,7 @@ rm -rf "$RT"; mkdir -p "$RT"; chmod 700 "$RT"
 cat > "$RT/config" <<'EOF'
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="gofi"] floating enable, border none, move position center, resize set 50 ppt 495 px
+for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center
 EOF
 
 env -u SWAYSOCK -u I3SOCK \

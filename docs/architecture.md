@@ -220,7 +220,7 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 ## Window geometry
 
 The launcher is a normal toplevel; Sway owns its placement and size. The rule
-`for_window [app_id="gofi"] floating enable, border none, move position center, resize set 50 ppt 495 px`
+`for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move absolute position center`
 matches rofi's layer-shell geometry on both the 1920×1080 and 2560×1600 @ 1.5
 outputs (verified). The app does not need to query display sizes or position itself
 on Wayland; it should use a sane initial size and let the rule win. On another

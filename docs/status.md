@@ -45,8 +45,15 @@
 - Real-config geometry check: ran the owner's actual Sway config (startup include
   removed) in nested Sway with the real rofi. Rofi is layer-shell, 50% width ×
   495 logical height, centred: 960×495 at 480,293 on 1920×1080; 853×495 logical
-  (1279×742 physical) on 2560×1600 @ 1.5. The gofi rule
-  `resize set 50 ppt 495 px` matches both exactly. Verified at both outputs.
+  (1279×742 physical) on 2560×1600 @ 1.5. Verified at both outputs.
+- Installed it (`~/.local/bin/gofi`, `just install`) and re-checked geometry against
+  the owner's real config: plain `move position center` centred in the workspace,
+  which sits below the bar and inside `gaps inner 8` — 952×495 at 484,310 instead
+  of rofi's 960×495 at 480,293. The rule now uses
+  `resize set 50 ppt 495 px, resize grow width 8 px, move absolute position center`;
+  measured 960×495 at 480,292 and 853×495 at 426,285 with the two outputs. The
+  `resize grow width 8 px` cancels this config's horizontal gap inset and is
+  owner-config-specific; the README documents it.
 - Wrote the initial docs: orchestration, goals, architecture, verification, ADRs
   0001–0008, this status, and the Rune assessment.
 - **M1 core complete** (`b27561f` providers, ranking/state integrated next commit):
