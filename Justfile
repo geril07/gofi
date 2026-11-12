@@ -1,20 +1,24 @@
 default: check
 
+# Clone pinned Rune into vendor/ and apply the startup patch.
+setup-rune:
+    scripts/setup-rune.sh
+
 check-rune:
     scripts/check-rune.sh
 
-check: check-rune fmt clippy test
+check: setup-rune check-rune fmt clippy test
 
 fmt:
     cargo fmt --package gofi-core --package gofi --check
 
-clippy:
+clippy: setup-rune
     cargo clippy --workspace --all-targets -- -D warnings
 
-test:
+test: setup-rune
     cargo test --workspace
 
-build: check-rune
+build: setup-rune check-rune
     cargo build --release -p gofi
 
 # Install the release binary into ~/.local/bin (override with BIN_DIR=...).
@@ -22,15 +26,15 @@ install: build
     install -Dm755 target/release/gofi "${BIN_DIR:-$HOME/.local/bin}/gofi"
 
 # Open the launcher (apps mode).
-run:
+run: setup-rune
     cargo run -p gofi
 
 # Open one mode: apps, run or clipboard.
-run-mode mode:
+run-mode mode: setup-rune
     cargo run -p gofi -- {{mode}}
 
 # just dump [mode] [query]
-dump mode="apps" query="":
+dump mode="apps" query="": setup-rune
     cargo run -q -p gofi -- --dump --mode {{mode}} --query "{{query}}"
 
 # Nested headless Sway: window geometry, focus, typing, Escape.

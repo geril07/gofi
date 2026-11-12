@@ -147,6 +147,11 @@
     [`research/rune-startup.patch`](research/rune-startup.patch). The remaining
     fixed cost is Rune/wgpu's fresh-process GPU init and the compositor's first
     configure, which the resident daemon would amortize.
+  - The patch is now the build dependency: `scripts/setup-rune.sh` creates the
+    gitignored `vendor/rune` from `references/rune` and applies the patch;
+    `just build`/`just check` run it. `~/.local/bin/gofi` is the 80 ms build,
+    `references/rune` stays pristine, and `just check-rune` verifies both.
+    Upstreaming the Rune patch is deferred.
 
 ## In progress
 
@@ -160,9 +165,9 @@ Nothing. **M4 — Sway integration and daily use — is next.**
 2. **Daily-use checklist** for one week, keeping rofi as the fallback.
 3. **Polish from real use**: IME check, any ranking/look adjustments, then
    review and independent verification.
-4. **Startup**: the Rune patch takes one-shot to 80 ms, level with rofi's ~89 ms
-   to first pixels. Decide whether to upstream or vendor the patch, and whether
-   the resident daemon (ADR 0007) is worth building to go below that floor.
+4. **Startup**: the patched build is installed and measures 80/90 ms, level with
+   rofi's ~89 ms to first pixels. Upstreaming the Rune patch is deferred; the
+   resident daemon (ADR 0007) is optional work to go below the one-shot floor.
 
 ## Blockers
 
@@ -185,7 +190,7 @@ None hard.
 - Clipboard previews are sensitive; never log them or persist them. The provider
   streams decode → wl-copy. E2E screenshots contain only synthetic test strings.
 - Rune is pre-release; API churn is expected. The revision is pinned and
-  `scripts/check-rune.sh` enforces it.
+  `scripts/check-rune.sh` enforces it and the startup patch.
 - Layer-shell immediate keyboard focus is not available; the ordinary-window path is
   the workaround (ADR 0003). The window is 1 px above rofi's y on a 1080p output.
 

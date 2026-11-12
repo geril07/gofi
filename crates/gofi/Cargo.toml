@@ -6,7 +6,7 @@ license.workspace = true
 
 [dependencies]
 gofi-core = { path = "../gofi-core" }
-rune = { path = "../../references/rune/crates/rune", default-features = false, features = ["svg"] }
+rune = { path = "../../vendor/rune/crates/rune", default-features = false, features = ["svg"] }
 serde.workspace = true
 serde_json.workspace = true
 fs2.workspace = true

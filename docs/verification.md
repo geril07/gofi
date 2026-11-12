@@ -284,9 +284,29 @@ renderer and providers warm.
 Verification: `just check` green (80 tests), both nested-Sway e2e scripts pass,
 CJK and emoji screenshots captured in `target/evidence/rune-patch-cjk/` and
 `target/evidence/emoji/`. The patch applies cleanly to the pinned Rune checkout
-(`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with `git apply`. It is **not upstreamed** and the repo still builds against
-`references/rune`; installing the fast build requires applying the patch to the
-Rune checkout.
+(`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with `git apply`.
+
+It is carried in the build, not upstreamed: `scripts/setup-rune.sh` clones the
+pinned `references/rune` into the gitignored `vendor/rune` and applies the
+patch; `crates/gofi/Cargo.toml` points there. `just build` and `just check` run
+the setup. `just check-rune` verifies the pin and that the patch is applied.
+
+### Vendored build and install (2026-11-13)
+
+- `just setup-rune` creates `vendor/rune` from `references/rune` at
+  `04b38ae0a73bda03f010e97d2fff540ab91f67b0` and applies
+  `research/rune-startup.patch` (9 files, 138 insertions). `vendor/` is
+  gitignored; the patch is the tracked artifact.
+- `crates/gofi/Cargo.toml` points at `../../vendor/rune/crates/rune`, so the
+  build cannot silently fall back to the unpatched reference. The gofi workspace
+  excludes `vendor` so Rune keeps its own workspace root.
+- `just install` installed `~/.local/bin/gofi` (35.9 MB, sha256
+  `5509bdf6…`). The build measures **80 ms median / 90 ms p95** (20 runs); the
+  installed copy measured **85/90 ms** (12 runs), within session noise.
+- The installed copy passes `scripts/e2e-sway.sh` and `scripts/e2e-launch.sh`
+  (`target/evidence/vendor-install*`), and a CJK query renders
+  (`target/evidence/vendor-cjk/typed.png`).
+- `just check` green (80 tests). Upstreaming the Rune patch is deferred.
 
 ## M1 result (2026-11-11)
 

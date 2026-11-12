@@ -161,17 +161,17 @@ What dominated the launch, and what the patch changes:
   `request_adapter` measured 1.6 ms. The pick now tries the adapter first and
   enumerates only when it is not the compositor's GPU.
 
-The patch is 9 files, 138 insertions, 35 deletions. It applies cleanly to the
-pinned checkout (`04b38ae0a73bda03f010e97d2fff540ab91f67b0`) with:
+The patch is 9 files, 138 insertions, 35 deletions. The repo carries it as a
+build step:
 
 ```sh
-git -C <rune-checkout> checkout 04b38ae0a73bda03f010e97d2fff540ab91f67b0
-git -C <rune-checkout> apply docs/research/rune-startup.patch
+just setup-rune   # clone references/rune into vendor/rune, apply the patch
+just check-rune   # verify the pin and the applied patch
 ```
 
-`references/` is read-only to this project; apply it only in a writable Rune
-checkout. Committing the patch moves the Rune HEAD, so `scripts/check-rune.sh`
-and the pin need updating at the same time.
+`scripts/setup-rune.sh` creates the gitignored `vendor/rune` from the pristine
+`references/rune`; `crates/gofi/Cargo.toml` points there. Upstreaming is
+deferred.
 
 Risks:
 
@@ -183,5 +183,4 @@ Risks:
   work because the directory walk finds nothing and falls back to `fc-list`.
 - The reduced-motion preference is cached for the process, so a change while gofi
   runs is not followed until the next launch.
-- The patch is not upstreamed; the repo still builds against the pinned
-  `references/rune`.
+- The patch is carried locally by `scripts/setup-rune.sh` and is not upstreamed.

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/gofi-core", "crates/gofi"]
 # Rune and the worker worktrees have their own workspace roots; they are not
 # members of this one even though they live under the repository directory.
-exclude = ["references", ".worktrees"]
+exclude = ["references", "vendor", ".worktrees"]
 
 [workspace.package]
 version = "0.1.0"

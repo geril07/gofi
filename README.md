@@ -17,13 +17,17 @@ override a clearly better match.
 
 ## Build and run
 
-Rune is a path dependency on the pinned clone in `references/rune` (the clone is
-gitignored; `scripts/check-rune.sh` verifies the revision):
+Rune is carried as a local patch: the pinned upstream needs startup work gofi
+depends on. `references/rune` is the pristine clone; the build uses a scratch
+checkout at `vendor/rune` with
+[`docs/research/rune-startup.patch`](docs/research/rune-startup.patch) applied.
+`just build` and `just check` run the setup automatically.
 
 ```sh
 git clone https://github.com/anomalyco/rune references/rune
 git -C references/rune checkout 04b38ae0a73bda03f010e97d2fff540ab91f67b0
 
+just setup-rune                # optional: build/check do this for you
 just build
 just install                   # copy to ~/.local/bin (BIN_DIR to override)
 gofi                           # apps
@@ -33,6 +37,9 @@ gofi                           # apps
 # Headless, no window:
 ./target/release/gofi --dump --mode apps --query fire
 ```
+
+For a plain `cargo build`, run `just setup-rune` first. It is idempotent and only
+checks the pin and the applied patch once the checkout exists.
 
 The launcher is a normal toplevel with `app_id="gofi"`. Sway gives it rofi's
 geometry with this rule (not installed by the project):
@@ -97,7 +104,10 @@ the nested-headless-Sway checks; `just measure` records startup.
 
 `references/` (gitignored) holds read-only clones used for behaviour and API study:
 
-- `references/rune` — Rune at `04b38ae0a73bda03f010e97d2fff540ab91f67b0`.
+- `references/rune` — Rune at `04b38ae0a73bda03f010e97d2fff540ab91f67b0`, kept
+  pristine.
+- `vendor/rune` (gitignored) — the same revision with the startup patch applied;
+  `just setup-rune` creates it. `just check-rune` verifies both.
 - `references/rofi-src` — rofi 2.0.0 source.
 - `references/rofi` — the user's current rofi config.
 - `references/sway` — the user's current Sway config.
