@@ -17,6 +17,10 @@ test:
 build: check-rune
     cargo build --release -p gofi
 
+# Install the release binary into ~/.local/bin (override with BIN_DIR=...).
+install: build
+    install -Dm755 target/release/gofi "$${BIN_DIR:-$$HOME/.local/bin}/gofi"
+
 # Open the launcher (apps mode).
 run:
     cargo run -p gofi

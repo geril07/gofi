@@ -25,7 +25,8 @@ git clone https://github.com/anomalyco/rune references/rune
 git -C references/rune checkout 04b38ae0a73bda03f010e97d2fff540ab91f67b0
 
 just build
-./target/release/gofi          # apps
+just install                   # copy to ~/.local/bin (BIN_DIR to override)
+gofi                           # apps
 ./target/release/gofi run      # executables
 ./target/release/gofi clipboard
 

@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-11
+**Last updated:** 2026-11-12
 **Phase:** M3 complete → M4 — Sway integration and daily use
 
 ## Done
@@ -115,8 +115,8 @@
   - Matched characters are bold and underlined, matching rofi's default highlight
     (`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`).
   - Ranking test for `tgram`; **76 tests** total.
-  - 9 new tests: **75 total** (23 binary/UI + 3 unit + 19 provider + 30
-    ranking/state).
+  - `just install` copies the release binary to `~/.local/bin/gofi`; the installed
+    copy passes both nested-Sway e2e scripts. Sway config remains the owner's step.
   - Startup re-measured after caching the theme chain and directory lists:
     apps **median 300 ms, p95 330 ms** over 20 runs; still inside the 400 ms p95
     target. The first two runs were 140–180 ms (warm page cache).
@@ -127,9 +127,9 @@ Nothing. **M4 — Sway integration and daily use — is next.**
 
 ## Next (ordered)
 
-1. **Sway integration**: the owner adds the window-rule snippet from the README
-   and, separately, decides whether to point the keybinds at gofi. No config was
-   changed by this project.
+1. **Sway integration**: gofi is installed at `~/.local/bin/gofi`; the owner adds
+   the window-rule snippet from the README and points the keybinds at it. No config
+   was changed by this project.
 2. **Daily-use checklist** for one week, keeping rofi as the fallback.
 3. **Polish from real use**: IME check, any ranking/look adjustments, then
    review and independent verification.
