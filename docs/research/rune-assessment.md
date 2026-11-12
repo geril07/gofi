@@ -122,9 +122,10 @@ Two framework gaps are real; the third is a perf question, not a bug.
    `keep_running` plus hidden-window reuse. The 126 ms first frame is ~4 ms
    connect, ~64 ms init and window creation (including ~20 ms of app data),
    ~51 ms wgpu device, swapchain, pipelines and first draw, ~8 ms commit. A fork
-   could add a wgpu pipeline cache or trim init, but one-shot parity with rofi's
-   58 ms needs a CPU/SHM renderer — a rewrite, not a fork patch. The app-level
-   lever is the resident daemon (ADR 0007).
+   could add a wgpu pipeline cache or trim init. One-shot parity with rofi does
+   not need a CPU/SHM renderer: rofi's first painted frame is ~89 ms, and the
+   patched build is already at 80/90 ms. The app-level lever for going below
+   that floor is the resident daemon (ADR 0007).
 
 Border widths are not a limitation: `El::border(f32, color)` accepts any width.
 Text, bold spans, icons/SVG, layout, input, image caching and the headless
@@ -135,11 +136,16 @@ runtime have all been sufficient.
 The real launcher paid for eager work Rune does on every launch. Measured under
 nested headless Sway with `scripts/measure-startup.sh --runs 20`:
 
-| build | median `ready_ms` | p95 |
+| build | median | p95 |
 |---|---:|---:|
-| pinned Rune | 140 ms | 170 ms |
-| patched Rune | **80 ms** | **90 ms** |
-| rofi 2.0 | 58 ms | — |
+| pinned Rune (`ready_ms`) | 140 ms | 170 ms |
+| patched Rune (`ready_ms`) | **80 ms** | **90 ms** |
+| rofi 2.0, first painted buffer | ~89 ms | — |
+| rofi 2.0, first empty commit | ~58 ms | — |
+
+The 58 ms often quoted for rofi is spawn → its first `wl_surface.commit()`,
+which is empty. The first commit carrying pixels is ~89 ms (20 alternating runs
+against gofi).
 
 What dominated the launch, and what the patch changes:
 

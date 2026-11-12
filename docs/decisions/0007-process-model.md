@@ -52,9 +52,11 @@ and normal focus. That costs a window + surface creation, but not a GPU device.
 
 One-shot gofi measured **140 ms median ready, p95 150 ms** under nested Sway
 after overlapping the mode provider with window/GPU setup and starting the GPU
-prewarm before `App::run` (was 170/180 ms). Rofi's full frame is 58 ms. The
-remaining gap is Rune/wgpu window creation and the first draw, so the resident
-daemon is the next lever if the owner wants rofi parity; it is not built yet.
+prewarm before `App::run` (was 170/180 ms). The 58 ms rofi figure used here
+turned out to be rofi's empty configure commit; rofi's first painted frame is
+~89 ms. The remaining cost is Rune/wgpu window creation and the first draw, so
+the resident daemon is a way below the one-shot floor, not a requirement for
+rofi parity; it is not built yet.
 
 ## Update 2026-11-13
 
@@ -70,7 +72,9 @@ Vulkan device and pipeline work behind window setup, but with the text work gone
 the window waits for the same ~50 ms, so `ready_ms` did not improve. It is not in
 the patch.
 
-Rofi's full frame is 58 ms. The remaining ~20 ms is fresh-process Vulkan
-instance/device/pipeline creation and the compositor's first configure. The
-resident daemon remains the only route to remove that floor: it keeps the device,
-renderer and providers warm and recreates only the surface per toggle.
+Rofi's first painted frame is ~89 ms in the same harness, so the patched build
+is level with it; the 58 ms figure was rofi's empty configure commit. The
+remaining fixed ~65 ms is fresh-process Vulkan instance/device/pipeline creation
+and the compositor's first configure. The resident daemon remains the only route
+to remove that floor: it keeps the device, renderer and providers warm and
+recreates only the surface per toggle.

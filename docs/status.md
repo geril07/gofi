@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-12
+**Last updated:** 2026-11-13
 **Phase:** M3 complete → M4 — Sway integration and daily use
 
 ## Done
@@ -141,9 +141,11 @@
   - Rune startup patch (not upstreamed): lazy CJK/symbol fallbacks, `fc-list` only
     when the font dirs have no match, lazy image workers, a deferred
     reduced-motion read, and a cheaper adapter pick. With the patch, `ready_ms` is
-    **80 ms median, 90 ms p95** over 20 runs; rofi is 58 ms. Patch:
+    **80 ms median, 90 ms p95** over 20 runs. Measured to the first commit that
+    carries pixels, rofi is ~89 ms, so the patched build is level with it; the
+    earlier 58 ms rofi figure was its empty configure commit. Patch:
     [`research/rune-startup.patch`](research/rune-startup.patch). The remaining
-    gap is Rune/wgpu's fresh-process GPU init and the compositor's first
+    fixed cost is Rune/wgpu's fresh-process GPU init and the compositor's first
     configure, which the resident daemon would amortize.
 
 ## In progress
@@ -158,9 +160,9 @@ Nothing. **M4 — Sway integration and daily use — is next.**
 2. **Daily-use checklist** for one week, keeping rofi as the fallback.
 3. **Polish from real use**: IME check, any ranking/look adjustments, then
    review and independent verification.
-4. **Startup parity**: the Rune patch takes one-shot to 80 ms; rofi is 58 ms.
-   Decide whether to upstream or vendor the patch, and whether to build the
-   resident daemon (ADR 0007) for the remaining GPU-init gap.
+4. **Startup**: the Rune patch takes one-shot to 80 ms, level with rofi's ~89 ms
+   to first pixels. Decide whether to upstream or vendor the patch, and whether
+   the resident daemon (ADR 0007) is worth building to go below that floor.
 
 ## Blockers
 
@@ -171,10 +173,11 @@ None hard.
 - Cold start is measured under nested headless Sway. The client renders with the
   real GPU (RADV), while the harness compositor uses pixman; only presentation is
   software-composited. First frame is **140 ms median, p95 150 ms** with the
-  pinned Rune, or **80/90 ms** with the startup patch (rofi 58 ms). The remaining
-  gap is Rune/wgpu's fresh-process GPU init and the compositor's first configure,
-  not the provider. Re-measure on the owner's Swayfx session before promising the
-  p95.
+  pinned Rune, or **80/90 ms** with the startup patch. Rofi is ~89 ms to its
+  first painted frame in the same harness, so they are level, not 22 ms apart.
+  The remaining fixed cost is Rune/wgpu's fresh-process GPU init and the
+  compositor's first configure, not the provider. Re-measure on the owner's
+  Swayfx session before promising the p95.
 - The icons provider resolves every icon eagerly at startup, but the theme-chain
   index makes it ~20 ms regardless of app count. If that ever matters, resolve
   only the visible rows.

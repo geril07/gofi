@@ -109,7 +109,10 @@ bug is only visible in a real window, add it to the e2e suite.
 - Startup, spawn → first buffer commit, alternating 16 runs in a private nested
   Sway: gofi median **124 ms**, rofi 2.0 median **59 ms**; paired gap **+65 ms**,
   down from +172 ms before the index. Absolute values move with session cache
-  state; the paired gap is the stable figure.
+  state; the paired gap is the stable figure. **Correction (2026-11-13):** the
+  rofi figure was its first `wl_surface.commit()`, which carries no buffer and
+  only asks layer-shell for a configure. Rofi's first commit with pixels was
+  ~89 ms in the same harness, so the real gap then was ~35 ms, not 65.
 - `just check` green (75 tests); both e2e scripts pass
   (`target/evidence/icons-index/`, `target/evidence/icons-index-actions/`).
 
@@ -179,7 +182,8 @@ with the real GPU (`RADV PHOENIX`); only compositing is pixman.
 The `connect → window` slice includes the app provider and icon index (about
 20 ms; `--dump` is 17 ms without icons and 23 ms with). Rune's GPU prewarm is a
 no-op on Linux; the rest is winit/font/window setup, wgpu device and swapchain,
-pipelines and the first draw. Rofi 2.0 in the same session: 57.9 ms median.
+pipelines and the first draw. Rofi 2.0 in the same session: 57.9 ms to its
+first, empty commit; its first commit carrying pixels was ~89 ms.
 
 ## Startup optimization (2026-11-12)
 
@@ -202,9 +206,11 @@ What changed:
 The remaining phase split (`WAYLAND_DEBUG=1`, 10 runs, logging overhead included)
 is spawn → connect 3.4 ms, connect → xdg_surface 64.5 ms, xdg → first buffer
 68.3 ms, buffer → commit 12.5 ms. The app-side work is no longer on the critical
-path. Rofi 2.0's full frame was measured at 58 ms; one-shot gofi is still about
-2x that. The next lever is the resident daemon (ADR 0007), not more provider
-work.
+path. The earlier "rofi full frame 58 ms" was wrong: that was rofi's empty
+configure commit. Measured to the first commit carrying pixels, rofi is ~89 ms
+(see the correction under the Rune startup patch), so one-shot gofi was about
+35 ms behind at this point, not 2x. The next lever is the resident daemon
+(ADR 0007), not more provider work.
 
 `GOFI_TRACE=1 gofi` prints wall-clock markers for `main`, `init`, the preload and
 `on_ready`; `WAYLAND_DEBUG=1` adds the protocol phases.
@@ -219,7 +225,16 @@ not. `ready_ms` under nested headless Sway with `scripts/measure-startup.sh
 |---|---:|---:|
 | pinned Rune | 140 ms | 170 ms |
 | patched Rune | **80 ms** | **90 ms** |
-| rofi 2.0, same session | 58 ms | — |
+| rofi 2.0, first painted buffer | ~89 ms | — |
+| rofi 2.0, first empty commit | ~58 ms | — |
+
+**Metric correction.** The 58 ms rofi figure used earlier (and the "22 ms gap"
+built on it) measured spawn → rofi's first `wl_surface.commit()`. For a
+layer-shell surface that commit is empty: it carries no buffer and only asks the
+compositor for a configure. The first commit that carries pixels was 86.5 and
+91.1 ms in two alternating sessions (20 pairs; gofi 90-95 ms with the same
+`WAYLAND_DEBUG=1` overhead, paired median difference -2.5 ms). Rofi is therefore
+level with the patched build at the first visible frame, not 22 ms ahead.
 
 The patch (`research/rune-startup.patch`, 9 files, 138 insertions) changes:
 
@@ -261,8 +276,9 @@ work gone the window waits for the same ~50 ms, and total `ready_ms` stayed at
 80/90 ms. It is not in the patch.
 
 The first draw still waits for the compositor's first configure (~15 ms in the
-nested session). That, plus fresh-process GPU init, is the remaining gap to
-rofi. The resident daemon (ADR 0007) removes both by keeping the device,
+nested session). That, plus fresh-process GPU init, is the fixed floor of a
+one-shot launch. It is not a gap to rofi, which pays a similar ~89 ms; the
+resident daemon (ADR 0007) is the way below that floor by keeping the device,
 renderer and providers warm.
 
 Verification: `just check` green (80 tests), both nested-Sway e2e scripts pass,
