@@ -157,7 +157,11 @@ bug is only visible in a real window, add it to the e2e suite.
   list can shrink: the scrollbar sits at x 932 in both modes (1412-1419 px in the
   1920 capture, `target/evidence/scrollbar/clipboard-fixed.png`). Regression test
   `long_clipboard_titles_do_not_push_the_scrollbar`.
-- `just check` green (77 tests).
+- Startup sizing: gofi asks Sway for the focused output's width and requests half
+  of it. On 2560×1600 @ 1.5 the first mapped frame was already **853×495** (before,
+  960 then 853 one frame later); on 1920×1080 it was **960×495**. Logs:
+  `target/evidence/no-resize/scaled.log`, `target/evidence/no-resize/hd.log`.
+- `just check` green (79 tests).
 
 ## Startup breakdown (2026-11-11)
 

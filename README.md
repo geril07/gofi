@@ -48,6 +48,10 @@ the workspace below it and sits slightly lower than rofi's output-centred layer-
 surface. If your config sets `gaps inner N`, add `resize grow width N px` after
 `resize set` to cancel the horizontal inset.
 
+At startup gofi asks Sway for the focused output's width and requests half of it,
+so the rule never resizes the first frame. Outside Sway, or if `swaymsg` is not on
+`PATH`, it falls back to 960×495 and the rule still fixes the size.
+
 `just check` runs fmt, clippy and the tests; `just e2e` and `just e2e-launch` run
 the nested-headless-Sway checks; `just measure` records startup.
 

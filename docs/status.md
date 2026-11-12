@@ -129,7 +129,9 @@
     (`ROFI_HL_BOLD | ROFI_HL_UNDERLINE`).
   - Long clipboard previews no longer push the scrollbar: rows truncate with `…`
     and the list shrinks, so the scrollbar sits at the same x as apps/run.
-    Regression test for it; **77 tests** total.
+  - Startup asks Sway for the focused output's width and requests half of it, so
+    the 50% rule no longer resizes the first frame (853 on the 1.5 output).
+    Sway IPC parsing tests; **79 tests** total.
   - `just install` copies the release binary to `~/.local/bin/gofi`; the installed
     copy passes both nested-Sway e2e scripts. Sway config remains the owner's step.
   - Startup re-measured after caching the theme chain and directory lists:

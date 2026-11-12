@@ -222,8 +222,10 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 The launcher is a normal toplevel; Sway owns its placement and size. The rule
 `for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center`
 matches rofi's layer-shell geometry on both the 1920×1080 and 2560×1600 @ 1.5
-outputs (verified). The app does not need to query display sizes or position itself
-on Wayland; it should use a sane initial size and let the rule win. On another
+outputs (verified). At startup the app asks Sway for the focused output's logical
+width (`swaymsg -t get_outputs`) and requests half of it, so the rule does not
+resize the first frame; outside Sway it falls back to 960×495. The app never
+positions itself; Sway's rule owns placement. On another
 compositor, the equivalent rule/wrapper is the integration point.
 
 ## UI (M2)

@@ -105,11 +105,15 @@ pub fn set_config(config: Config) {
 }
 
 pub fn run() {
+    // Ask Sway for the focused output's width so the first frame is already the
+    // size its 50% rule wants; otherwise the rule resizes it visibly on a scaled
+    // output.
+    let width = crate::sway::panel_width().unwrap_or(PANEL_W);
     let spec = AppSpec {
         fonts: FONTS,
         families: ("JetBrains Mono", "JetBrains Mono"),
         setup: Some(|state: &mut AppState, waker| state.setup_images(waker)),
-        ..AppSpec::new("gofi", (PANEL_W, PANEL_H), init, view)
+        ..AppSpec::new("gofi", (width, PANEL_H), init, view)
     };
     App::new(spec)
         .configured_options(
