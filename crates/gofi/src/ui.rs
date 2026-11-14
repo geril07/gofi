@@ -1,8 +1,9 @@
 //! The Rune launcher window.
 //!
-//! Geometry and colours are measured from the owner's rofi (Catppuccin Macchiato,
-//! JetBrains Mono 16, 32 px icons, seven 48 px rows, 50% × 495 window). The
-//! compositor owns size and placement; this view fills whatever it is given.
+//! The quiet skin: an 800×496 panel, Catppuccin Macchiato, JetBrains Mono,
+//! 32 px icons, seven 48 px rows, a tinted selection pill and a scrollbar at
+//! the list's edge. The compositor owns size and placement; this view fills
+//! whatever it is given.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -18,21 +19,27 @@ use gofi_core::store::State;
 use gofi_core::{Action, Env, Item, ItemId, ItemKind, Loaded, Mode, Provider, ProviderError};
 use rune::tok::TextStyle;
 use rune::{
-    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, LineCap, Shape, Span, TextEdit,
-    Tx, WheelEvent, WindowOptions, canvas, col, el, row, text, text_input,
+    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, Span, TextEdit, Tx, WheelEvent,
+    WindowOptions, col, el, row, text, text_input,
 };
 
-const PANEL_W: f32 = 960.0;
-const PANEL_H: f32 = 495.0;
-/// The compositor fixes the height at 495 logical px, so the list viewport is
-/// `495 - 10 - 59 - 20 - 10 = 396`.
-const LIST_H: f32 = 396.0;
+const PANEL_W: f32 = 800.0;
+const PANEL_H: f32 = 496.0;
+/// The compositor fixes the height at 496 logical px, so the list viewport is
+/// `496 - 10 - 59 - 20 - 10 = 397`.
+const LIST_H: f32 = 397.0;
 const TOP_H: f32 = 59.0;
 const ROW_H: f32 = 48.0;
 const ROW_GAP: f32 = 9.0;
 const VISIBLE: usize = 7;
-const TAB_W: f32 = 100.0;
-const TAB_GAP: f32 = 20.0;
+const TAB_W: f32 = 96.0;
+const TAB_GAP: f32 = 8.0;
+const TOP_GAP: f32 = 20.0;
+const TAB_UNDERLINE_W: f32 = 40.0;
+const PANEL_RADIUS: f32 = 12.0;
+const ROW_RADIUS: f32 = 8.0;
+/// A tinted selection instead of rofi's filled bar; the rail keeps it legible.
+const SELECTION_ALPHA: f32 = 0.16;
 const ICON: f32 = 32.0;
 const SCROLLBAR_W: f32 = 8.0;
 /// Rofi/Pango draw matched text with a 2 px underline at 1x; Rune's default is 1 px.
@@ -47,7 +54,7 @@ const FONTS: &[&[u8]] = &[
 ];
 
 const BODY: TextStyle = TextStyle::new(21.333, 400.0).lh(26.0);
-const TAB_RUN: TextStyle = TextStyle::new(17.0, 500.0).lh(20.0);
+const TAB_TEXT: TextStyle = TextStyle::new(15.0, 500.0).lh(20.0);
 
 /// Catppuccin Macchiato, converted from sRGB to the linear space Rune blends in.
 struct Palette {
@@ -114,17 +121,12 @@ pub fn set_config(config: Config) {
 
 pub fn run() {
     crate::trace("ui::run");
-    // Ask Sway for the focused output's width so the first frame is already the
-    // size its 50% rule wants; otherwise the rule resizes it visibly on a scaled
-    // output.
-    let width = crate::sway::panel_width().unwrap_or(PANEL_W);
-    crate::trace("size");
     let spec = AppSpec {
         fonts: FONTS,
         families: ("JetBrains Mono", "JetBrains Mono"),
         setup: Some(|state: &mut AppState, waker| state.setup_images(waker)),
         poll: Some(|state, _now, _tx| state.poll_preload()),
-        ..AppSpec::new("gofi", (width, PANEL_H), init, view)
+        ..AppSpec::new("gofi", (PANEL_W, PANEL_H), init, view)
     };
     App::new(spec)
         .configured_options(
@@ -490,7 +492,7 @@ fn view(state: &AppState, cx: &mut Cx<AppState>) -> El {
     let top = row()
         .h(TOP_H)
         .w_full()
-        .gap(TAB_GAP)
+        .gap(TOP_GAP)
         .child(search_field(state, palette))
         .child(tabs(state, palette));
 
@@ -498,6 +500,9 @@ fn view(state: &AppState, cx: &mut Cx<AppState>) -> El {
         .w_full()
         .h_full()
         .fill(palette.mantle)
+        .radius(PANEL_RADIUS)
+        .clip_rounded(PANEL_RADIUS)
+        .border(1.0, palette.overlay1.alpha(0.35))
         .pt(10.0)
         .pb(10.0)
         .px(20.0)
@@ -521,7 +526,7 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
         .h(26.0)
         .px(16.0)
         .color(palette.text)
-        .placeholder("Search...", palette.text)
+        .placeholder("Search...", palette.overlay1)
         .on_edit(|state: &mut AppState| &mut state.query)
         .on_input_key(handle_key)
         .on_input_change(|state: &mut AppState, _tx| state.on_query_changed())
@@ -644,53 +649,39 @@ fn tabs(state: &AppState, palette: &Palette) -> El {
 
 fn tab_button(state: &AppState, palette: &Palette, mode: Mode) -> El {
     let selected = state.mode == mode;
-    let background = if selected { palette.blue } else { palette.base };
     let ink = if selected {
-        palette.mantle
-    } else {
         palette.text
+    } else {
+        palette.overlay1
     };
 
-    el().key(format!("tab-{}", mode.as_str()))
+    let mut tab = col()
+        .key(format!("tab-{}", mode.as_str()))
         .w(TAB_W)
         .h(TOP_H)
-        .radius(8.0)
-        .fill(background)
         .center()
-        .child(tab_glyph(mode, ink))
-        .on_press_tx(move |state: &mut AppState, _tx| state.set_mode(mode))
-}
+        .gap(6.0)
+        .child(text(tab_label(mode)).font(TAB_TEXT).color(ink));
 
-fn tab_glyph(mode: Mode, ink: Color) -> El {
-    match mode {
-        Mode::Apps => magnifier(ink),
-        Mode::Run => text("</>").font(TAB_RUN).color(ink),
-        Mode::Clipboard => clipboard_glyph(24.0, ink),
+    if selected {
+        tab = tab.child(
+            el().key("tab-indicator")
+                .w(TAB_UNDERLINE_W)
+                .h(2.0)
+                .radius(1.0)
+                .fill(palette.blue),
+        );
     }
+
+    tab.on_press_tx(move |state: &mut AppState, _tx| state.set_mode(mode))
 }
 
-fn magnifier(ink: Color) -> El {
-    // A ring plus a round-capped handle, the same shape rofi's theme draws.
-    let center = 10.0;
-    let radius = 6.0;
-    let points: Vec<[f32; 2]> = (0..32)
-        .map(|step| {
-            let angle = step as f32 / 32.0 * std::f32::consts::TAU;
-            [center + radius * angle.cos(), center + radius * angle.sin()]
-        })
-        .collect();
-    let diagonal = radius * std::f32::consts::FRAC_1_SQRT_2;
-    let shape = Shape::new()
-        .stroke_with(points, true, 2.0, LineCap::Round, ink)
-        .line(
-            [center + diagonal, center + diagonal],
-            [20.5, 20.5],
-            2.0,
-            LineCap::Round,
-            ink,
-        )
-        .view_box(24.0, 24.0);
-    canvas(shape).key("tab-apps-glyph").size(24.0, 24.0)
+fn tab_label(mode: Mode) -> &'static str {
+    match mode {
+        Mode::Apps => "Apps",
+        Mode::Run => "Run",
+        Mode::Clipboard => "Clipboard",
+    }
 }
 
 fn clipboard_glyph(size: f32, ink: Color) -> El {
@@ -742,6 +733,11 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
         return list;
     }
 
+    let slot = state.selected.saturating_sub(state.offset);
+    if slot < VISIBLE {
+        list = list.child(selection_pill(palette, slot));
+    }
+
     let end = (state.offset + VISIBLE).min(state.ranked.len());
     for (slot, index) in (state.offset..end).enumerate() {
         let ranked = &state.ranked[index];
@@ -755,11 +751,26 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
                 index,
                 item,
                 ranked,
-                selected: index == state.selected,
             },
         ));
     }
     list
+}
+
+fn selection_pill(palette: &Palette, slot: usize) -> El {
+    el().key("selection")
+        .absolute(0.0, slot as f32 * (ROW_H + ROW_GAP))
+        .w_full()
+        .h(ROW_H)
+        .radius(ROW_RADIUS)
+        .fill(palette.blue.alpha(SELECTION_ALPHA))
+        .child(
+            el().absolute(0.0, 10.0)
+                .w(2.0)
+                .h(28.0)
+                .radius(1.0)
+                .fill(palette.blue),
+        )
 }
 
 struct RowSpec<'a> {
@@ -767,7 +778,6 @@ struct RowSpec<'a> {
     index: usize,
     item: &'a Item,
     ranked: &'a Ranked,
-    selected: bool,
 }
 
 fn row_view(state: &AppState, palette: &Palette, scale: f32, spec: RowSpec<'_>) -> El {
@@ -776,27 +786,14 @@ fn row_view(state: &AppState, palette: &Palette, scale: f32, spec: RowSpec<'_>) 
         index,
         item,
         ranked,
-        selected,
     } = spec;
-    let ink = if selected {
-        palette.mantle
-    } else {
-        palette.text
-    };
-    let icon = icon_view(state, palette, scale, item, selected);
+    let icon = icon_view(state, palette, scale, item);
     let has_icon = icon.is_some();
 
     let mut row = row()
         .key(format!("row-{slot}"))
         .w_full()
         .h(ROW_H)
-        .radius(8.0)
-        .clip_rounded(8.0)
-        .fill(if selected {
-            palette.blue
-        } else {
-            Color::TRANSPARENT
-        })
         .center_y()
         .gap(16.0)
         .px(if has_icon { 9.0 } else { 15.0 })
@@ -805,16 +802,10 @@ fn row_view(state: &AppState, palette: &Palette, scale: f32, spec: RowSpec<'_>) 
     if let Some(icon) = icon {
         row = row.child(icon);
     }
-    row.child(title_text(item, &ranked.positions, ink))
+    row.child(title_text(item, &ranked.positions, palette.text))
 }
 
-fn icon_view(
-    state: &AppState,
-    palette: &Palette,
-    scale: f32,
-    item: &Item,
-    selected: bool,
-) -> Option<El> {
+fn icon_view(state: &AppState, palette: &Palette, scale: f32, item: &Item) -> Option<El> {
     match item.kind {
         ItemKind::App => {
             let Some(path) = &item.icon else {
@@ -832,14 +823,12 @@ fn icon_view(
                 .clone();
             Some(el().w(ICON).h(ICON).pixels(image.pixels()))
         }
-        ItemKind::Clipboard => Some(el().w(ICON).h(ICON).center().child(clipboard_glyph(
-            20.0,
-            if selected {
-                palette.mantle
-            } else {
-                palette.overlay1
-            },
-        ))),
+        ItemKind::Clipboard => Some(
+            el().w(ICON)
+                .h(ICON)
+                .center()
+                .child(clipboard_glyph(20.0, palette.overlay1)),
+        ),
         ItemKind::Executable => None,
     }
 }

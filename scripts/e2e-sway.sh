@@ -79,7 +79,7 @@ fail() {
 cat > "$RT/config" <<EOF
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="$APP_ID"] floating enable, border none, resize set 50 ppt 495 px, move position center
+for_window [app_id="$APP_ID"] floating enable, border none, resize set 800 px 496 px, move position center
 EOF
 
 # The nested compositor. No live-session variables survive.
@@ -143,14 +143,9 @@ FOCUSED=$(nested swaymsg -s "$SOCK" -t get_tree \
 
 read -r X Y W H < <(nested swaymsg -s "$SOCK" -t get_tree \
   | jq -r --arg id "$APP_ID" '.. | objects | select(.app_id? == $id) | "\(.rect.x) \(.rect.y) \(.rect.width) \(.rect.height)"' | head -1)
-[ "$W" = "960" ] && [ "$H" = "495" ] || fail "expected 960x495, got ${W}x${H}"
-[ "$X" = "480" ] || fail "expected x 480, got $X"
-# 495 is odd, so the centred y is 292.5; Sway floors a toplevel to 292 while a
-# layer-shell rounds rofi up to 293. Both are the same centred position.
-case "$Y" in
-  292|293) ;;
-  *) fail "expected y 292 or 293, got $Y" ;;
-esac
+[ "$W" = "800" ] && [ "$H" = "496" ] || fail "expected 800x496, got ${W}x${H}"
+[ "$X" = "560" ] || fail "expected x 560, got $X"
+[ "$Y" = "292" ] || fail "expected y 292, got $Y"
 
 # Let the asynchronous icon decode finish before the evidence screenshot.
 sleep 0.6
