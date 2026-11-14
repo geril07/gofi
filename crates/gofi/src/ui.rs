@@ -23,6 +23,10 @@ use rune::{
     WindowOptions, col, el, row, text, text_input,
 };
 
+mod motion;
+
+use motion::{Motion, SELECT, TAB, mode_transition};
+
 const PANEL_W: f32 = 800.0;
 const PANEL_H: f32 = 496.0;
 /// The compositor fixes the height at 496 logical px, so the list viewport is
@@ -184,6 +188,8 @@ fn load_items(env: &Env, mode: Mode) -> Result<Loaded, ProviderError> {
 pub struct AppState {
     env: Env,
     mode: Mode,
+    /// Which way the last mode switch travelled: `1.0` forward, `-1.0` back.
+    mode_dir: f32,
     query: TextEdit,
     selected: usize,
     offset: usize,
@@ -210,6 +216,7 @@ impl AppState {
         Self {
             env,
             mode,
+            mode_dir: 1.0,
             query,
             selected: 0,
             offset: 0,
@@ -304,10 +311,11 @@ impl AppState {
         self.offset = scroll_offset(self.selected, self.ranked.len());
     }
 
-    fn set_mode(&mut self, mode: Mode) {
+    fn set_mode(&mut self, mode: Mode, direction: f32) {
         if self.mode == mode {
             return;
         }
+        self.mode_dir = if direction < 0.0 { -1.0 } else { 1.0 };
         self.mode = mode;
         self.query.clear();
         self.query.focused = true;
@@ -328,7 +336,7 @@ impl AppState {
             (Mode::Clipboard, -1) => Mode::Run,
             (_, _) => self.mode,
         };
-        self.set_mode(next);
+        self.set_mode(next, if direction < 0 { -1.0 } else { 1.0 });
     }
 
     fn on_query_changed(&mut self) {
@@ -489,19 +497,19 @@ fn scroll_offset(selected: usize, total: usize) -> usize {
 
 fn view(state: &AppState, cx: &mut Cx<AppState>) -> El {
     let palette = Palette::get();
+    let motion = Motion::get();
     let top = row()
         .h(TOP_H)
         .w_full()
         .gap(TOP_GAP)
         .child(search_field(state, palette))
-        .child(tabs(state, palette));
+        .child(tabs(state, palette, motion));
 
-    col()
+    let mut root = col()
         .w_full()
         .h_full()
         .fill(palette.mantle)
         .radius(PANEL_RADIUS)
-        .clip_rounded(PANEL_RADIUS)
         .border(1.0, palette.overlay1.alpha(0.35))
         .pt(10.0)
         .pb(10.0)
@@ -513,9 +521,15 @@ fn view(state: &AppState, cx: &mut Cx<AppState>) -> El {
                 .w_full()
                 .grow(1.0)
                 .gap(10.0)
-                .child(list_view(state, palette, cx.env().scale))
+                .child(list_view(state, palette, cx.env().scale, motion))
                 .child(scrollbar(state, palette)),
-        )
+        );
+
+    // The off switch also lands every default layout spring inside the panel.
+    if !motion.enabled() {
+        root = root.instant_changes();
+    }
+    root
 }
 
 fn search_field(state: &AppState, palette: &Palette) -> El {
@@ -536,8 +550,17 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
 }
 
 fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {
-    // Rofi has no scroll animation; land the list and scrollbar in this frame.
-    tx.instant();
+    // Typing must land at once; moving the selection and switching modes are
+    // the motion layer's business. With motion off everything lands at once.
+    let animated = match &event.key {
+        Key::Up | Key::Down | Key::PageUp | Key::PageDown | Key::Home | Key::End | Key::Tab => true,
+        Key::Command('p' | 'n') => true,
+        Key::Left | Key::Right => event.mods.shift,
+        _ => false,
+    };
+    if !animated || !Motion::get().enabled() {
+        tx.instant();
+    }
     match &event.key {
         Key::Escape => {
             tx.close_window();
@@ -639,15 +662,15 @@ fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {
     }
 }
 
-fn tabs(state: &AppState, palette: &Palette) -> El {
+fn tabs(state: &AppState, palette: &Palette, motion: &Motion) -> El {
     let mut bar = row().h_full().gap(TAB_GAP);
     for mode in [Mode::Apps, Mode::Run, Mode::Clipboard] {
-        bar = bar.child(tab_button(state, palette, mode));
+        bar = bar.child(tab_button(state, palette, mode, motion));
     }
     bar
 }
 
-fn tab_button(state: &AppState, palette: &Palette, mode: Mode) -> El {
+fn tab_button(state: &AppState, palette: &Palette, mode: Mode, motion: &Motion) -> El {
     let selected = state.mode == mode;
     let ink = if selected {
         palette.text
@@ -664,16 +687,39 @@ fn tab_button(state: &AppState, palette: &Palette, mode: Mode) -> El {
         .child(text(tab_label(mode)).font(TAB_TEXT).color(ink));
 
     if selected {
-        tab = tab.child(
-            el().key("tab-indicator")
-                .w(TAB_UNDERLINE_W)
-                .h(2.0)
-                .radius(1.0)
-                .fill(palette.blue),
-        );
+        let mut indicator = el()
+            .key("tab-indicator")
+            .w(TAB_UNDERLINE_W)
+            .h(2.0)
+            .radius(1.0)
+            .fill(palette.blue);
+        if motion.enabled() {
+            indicator = indicator
+                .matched("tab-indicator")
+                .motion(motion.spring(TAB));
+        }
+        tab = tab.child(indicator);
     }
 
-    tab.on_press_tx(move |state: &mut AppState, _tx| state.set_mode(mode))
+    tab.on_press_tx(move |state: &mut AppState, _tx| {
+        state.set_mode(mode, mode_direction(state.mode, mode))
+    })
+}
+
+fn mode_rank(mode: Mode) -> u8 {
+    match mode {
+        Mode::Apps => 0,
+        Mode::Run => 1,
+        Mode::Clipboard => 2,
+    }
+}
+
+fn mode_direction(from: Mode, to: Mode) -> f32 {
+    if mode_rank(to) >= mode_rank(from) {
+        1.0
+    } else {
+        -1.0
+    }
 }
 
 fn tab_label(mode: Mode) -> &'static str {
@@ -704,9 +750,10 @@ fn clipboard_glyph(size: f32, ink: Color) -> El {
         )
 }
 
-fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
+fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -> El {
     let mut list = col()
-        .key("list")
+        .key(format!("list-{}", state.mode.as_str()))
+        .transition(motion.transition(mode_transition(state.mode_dir)))
         .w_full()
         .grow(1.0)
         .shrink()
@@ -735,7 +782,7 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
 
     let slot = state.selected.saturating_sub(state.offset);
     if slot < VISIBLE {
-        list = list.child(selection_pill(palette, slot));
+        list = list.child(selection_pill(palette, slot, motion));
     }
 
     let end = (state.offset + VISIBLE).min(state.ranked.len());
@@ -757,9 +804,10 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32) -> El {
     list
 }
 
-fn selection_pill(palette: &Palette, slot: usize) -> El {
+fn selection_pill(palette: &Palette, slot: usize, motion: &Motion) -> El {
     el().key("selection")
         .absolute(0.0, slot as f32 * (ROW_H + ROW_GAP))
+        .motion(motion.spring(SELECT))
         .w_full()
         .h(ROW_H)
         .radius(ROW_RADIUS)

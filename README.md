@@ -8,9 +8,11 @@ A fast, native Wayland launcher for Sway: applications, executables and clipboar
 history with fuzzy matching and frecency. Built in Rust on
 [Rune](https://github.com/anomalyco/rune).
 
-gofi keeps the keyboard-first feel of rofi — the same geometry, Catppuccin
-Macchiato palette and JetBrains Mono text — and adds a ranking model that puts
-what you use most first without letting history override a clearly better match.
+gofi keeps the keyboard-first feel of rofi — the Catppuccin Macchiato palette
+and JetBrains Mono text — and adds a ranking model that puts what you use most
+first without letting history override a clearly better match. The panel is
+quieter than rofi: a tinted selection pill, text tabs and short spring
+transitions, with motion removable in one switch.
 
 > **Status:** pre-alpha, daily-drivable on Sway. Apps, run and clipboard modes,
 > icons, launch/copy, frecency and single-instance handling work. The window
@@ -27,9 +29,9 @@ what you use most first without letting history override a clearly better match.
 - **Clipboard stays in cliphist.** gofi reads `cliphist list`, decodes the chosen
   entry with `cliphist decode`, and pipes it to `wl-copy`. Previews and entry IDs
   are never written to gofi state or logs.
-- **Native Wayland toplevel**, no X11. Opens centred on the focused Sway output
-  at 50% width × 495 px, with seven 48 px rows, 32 px icons and an 8 px
-  scrollbar.
+- **Native Wayland toplevel**, no X11. An 800×496 panel centred on the focused
+  Sway output, with seven 48 px rows, 32 px icons, a tinted selection pill and
+  an 8 px scrollbar.
 - **Keyboard-first:** arrows and paging, Tab for modes, Enter to launch or copy,
   Escape to close, plus readline-style editing keys.
 - **Single instance:** invoking gofi while it is open closes the open launcher.
@@ -40,8 +42,6 @@ what you use most first without letting history override a clearly better match.
 - Rust 1.99.1, pinned by `rust-toolchain.toml`.
 - [`just`](https://github.com/casey/just) for the recipes.
 - For clipboard mode: `cliphist` and `wl-clipboard` (`wl-copy`).
-- `swaymsg` on `PATH` so gofi can size itself to the focused output; Sway ships
-  it.
 
 ## Build and install
 
@@ -66,7 +66,7 @@ gofi is a normal toplevel with `app_id="gofi"`. Add the window rule and whatever
 keybinds you prefer:
 
 ```sway
-for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center
+for_window [app_id="gofi"] floating enable, border none, resize set 800 px 496 px, move position center
 
 bindsym $mod+Return exec gofi
 bindsym $mod+Shift+Return exec gofi run
@@ -78,13 +78,8 @@ monitor you are using. Do not use `move absolute position center`: with more tha
 one output it centres across the whole output layout instead.
 
 With a bar, the panel centres in the workspace below it and sits slightly lower
-than rofi's output-centred layer-shell surface. If your config sets
-`gaps inner N`, add `resize grow width N px` after `resize set` to cancel the
-horizontal inset.
-
-At startup gofi asks Sway for the focused output's width and requests half of it,
-so the rule never resizes the first frame. Outside Sway, or if `swaymsg` is not on
-`PATH`, it falls back to 960×495 and the rule still fixes the size.
+than rofi's output-centred layer-shell surface. The size is fixed, so `gaps
+inner` moves the centre but does not narrow the panel.
 
 ## Usage
 
@@ -102,6 +97,12 @@ gofi --dump --mode run --limit 10
 ```
 
 `--dump` prints ranked items as JSON and exits.
+
+### Motion
+
+Selection, the tab indicator and mode changes use Rune springs. Set
+`GOFI_MOTION=off` (also `0`, `false`, `no`, `none`) to land every change at once;
+the resting UI is identical.
 
 ### Keys
 
