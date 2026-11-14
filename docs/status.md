@@ -209,10 +209,11 @@ the selected label, drop the rail, and make the selection snappier.
 
 ## Demo assets (2026-11-14)
 
-- The README now leads with a 9.4 s inline MP4 player (1920×1200, 60 fps) plus
-  a 2× still and a download link. It covers a query, paging, tab switches and
+- The README now leads with a 9.4 s inline MP4 player (1920×1200, 60 fps), with
+  no still image or download links. It covers a query, paging, tab switches and
   clipboard scrolling. GitHub only plays uploaded user assets inline, so the
-  player URL is an upload of `docs/assets/demo.mp4`; the file stays in the repo.
+  player URL is an upload of `docs/assets/demo.mp4`; the file stays in the repo
+  as the source.
 - Recorded headlessly through Rune's own tooling (`--script`, `--video`,
   `--desktop`, `--scale 2`), not a compositor or screen capture. `gofi --record`
   hands the remaining flags to Rune.

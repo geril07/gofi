@@ -597,7 +597,8 @@ Sway, screen capture or live session is involved.
   `docs/assets/launcher.png` (1600×992, transparent corners, taken at the
   `still` mark). The README embeds an uploaded copy of the MP4, because GitHub
   only plays video from a `user-attachments` URL, not from a file in the
-  repository; `docs/assets/demo.mp4` stays as the source and download.
+  repository; `docs/assets/demo.mp4` stays as the source. The still is not
+  referenced from the README.
 - **Scenario.** Search ("firef"), two row moves, `PageDown`/`Home`, Tab to Run,
   an executable query ("ff"), Tab to Clipboard, row moves and `PageDown`, then
   Shift+Tab back to Apps and "gh". The `end` mark lands on the same resting

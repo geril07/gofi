@@ -4,7 +4,7 @@
 
 <video src="https://github.com/user-attachments/assets/a0cbf96d-a24f-4233-90c7-df2ae20030f2" controls muted></video>
 
-<sub>[Still](docs/assets/launcher.png) · [download the MP4](docs/assets/demo.mp4) · demo data is synthetic</sub>
+<sub>Demo data is synthetic.</sub>
 
 A fast, native Wayland launcher for Sway: applications, executables and clipboard
 history with fuzzy matching and frecency. Built in Rust on
