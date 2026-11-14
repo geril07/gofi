@@ -202,10 +202,21 @@ the selected label, drop the rail, and make the selection snappier.
 - The search row can shrink, so a long query scrolls inside the field instead of
   widening it and pushing the tabs off the panel. Unit test types 120 chars and
   asserts the tab rect and field width are unchanged.
-- `just check` green (**84 tests**). E2E on/off still passes with byte-identical
+- `just check` green (**86 tests**). E2E on/off still passes with byte-identical
   resting screenshots (`56da2cd1…`), and launch/copy still passes. A 60-char
   query leaves the tabs in place (`target/evidence/long-query-fixed/`). Installed
   at `~/.local/bin/gofi` (sha256 `e6440375…`). Evidence `target/evidence/ui-tabs*`.
+
+## Demo assets (2026-11-14)
+
+- The README now leads with a 9.4 s demo GIF (960×600, 25 fps, ~1.3 MB) plus a
+  60 fps MP4 and a 2× still. It covers a query, paging, tab switches and
+  clipboard scrolling.
+- Recorded headlessly through Rune's own tooling (`--script`, `--video`,
+  `--desktop`, `--scale 2`), not a compositor or screen capture. `gofi --record`
+  hands the remaining flags to Rune.
+- `scripts/record-demo.sh` / `just demo` rebuilds the fixtures, private cliphist
+  DB and assets; nothing from the live clipboard, app list or gofi state is read.
 
 ## In progress
 

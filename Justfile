@@ -48,3 +48,7 @@ e2e-launch binary="target/release/gofi":
 # Process start -> first on_ready under nested Sway.
 measure mode="apps" runs="20":
     scripts/measure-startup.sh --binary target/release/gofi --mode {{mode}} --runs {{runs}}
+
+# Record the README demo headlessly into docs/assets (GIF, MP4, still).
+demo: build
+    scripts/record-demo.sh --binary target/release/gofi
