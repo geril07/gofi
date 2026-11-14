@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/geril07/gofi/actions/workflows/ci.yml/badge.svg)](https://github.com/geril07/gofi/actions/workflows/ci.yml)
 
-<video src="https://github.com/user-attachments/assets/9590f749-27d8-4424-8147-b9c802c5a099" controls muted></video>
+<video src="https://github.com/user-attachments/assets/a0cbf96d-a24f-4233-90c7-df2ae20030f2" controls muted></video>
 
 A fast, native Wayland launcher for Sway: applications, executables and clipboard
 history with fuzzy matching and frecency. Built in Rust on

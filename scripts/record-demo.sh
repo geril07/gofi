@@ -172,21 +172,11 @@ demo_env "$BINARY" --record \
 cp "$WORK/demo.mp4" "$OUT/demo.mp4"
 cp "$WORK/launcher.png" "$OUT/launcher.png"
 
-# The README player uses a smaller, broadly decodable copy: 1280x800 at 30 fps,
-# H.264 Main@4.0. The 1920x1200 60 fps file stays as the master.
-ffmpeg -v error -y -i "$OUT/demo.mp4" \
-  -vf "scale=1280:800:flags=lanczos,fps=30" \
-  -c:v libx264 -profile:v main -level:v 4.0 -pix_fmt yuv420p \
-  -crf 20 -preset slow -movflags +faststart -an "$OUT/demo-web.mp4"
-
 [ "$(identify -format '%wx%h' "$OUT/launcher.png" | head -1)" = "1600x992" ] \
   || { echo "launcher.png is not 1600x992" >&2; exit 1; }
 [ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 "$OUT/demo.mp4")" = "1920,1200,60/1" ] \
   || { echo "demo.mp4 is not 1920x1200 at 60 fps" >&2; exit 1; }
-[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=profile,width,height,r_frame_rate -of csv=p=0 "$OUT/demo-web.mp4")" = "Main,1280,800,30/1" ] \
-  || { echo "demo-web.mp4 is not H.264 Main 1280x800 at 30 fps" >&2; exit 1; }
 
-printf 'demo.mp4      %sx%s  %s fps  %s KB\n' 1920 1200 "$FPS" "$(( $(stat -c %s "$OUT/demo.mp4") / 1024 ))"
-printf 'demo-web.mp4  1280x800  30 fps  %s KB\n' "$(( $(stat -c %s "$OUT/demo-web.mp4") / 1024 ))"
-printf 'launcher      1600x992\n'
-printf 'work          %s\n' "$WORK"
+printf 'demo.mp4  %sx%s  %s fps  %s KB\n' 1920 1200 "$FPS" "$(( $(stat -c %s "$OUT/demo.mp4") / 1024 ))"
+printf 'launcher  1600x992\n'
+printf 'work      %s\n' "$WORK"
