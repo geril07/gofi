@@ -605,14 +605,20 @@ Sway, screen capture or live session is involved.
 - **Checks.** `record-demo.sh` fails if the MP4 is not 1920×1200 at 60 fps or
   the still is not 1600×992. Work files and logs are under
   `target/evidence/demo/`.
-- **Publishing.** GitHub's Markdown API only renders a video player for an
-  uploaded user asset. Re-upload after a re-record and replace the URL in the
-  README:
+- **Publishing.** GitHub only renders a video player for an uploaded user
+  asset. Attach the MP4 to a public issue or pull request comment with `gh`;
+  GitHub rewrites a lone `![](path)` reference to the public asset URL. The raw
+  `uploads.github.com/user-attachments/assets` endpoint also uploads, but the
+  URL stays private and returns 404 to anonymous readers.
 
   ```sh
-  curl -X POST "https://uploads.github.com/user-attachments/assets?name=demo.mp4&content_type=video%2Fmp4&repository_id=$(gh api repos/geril07/gofi --jq .id)" \
-    -H "Authorization: Bearer $(gh auth token)" --data-binary @docs/assets/demo.mp4
+  printf '![](docs/assets/demo.mp4)\n' > /tmp/demo.md
+  gh pr comment <n> --body-file /tmp/demo.md --attach docs/assets/demo.mp4
+  gh pr view <n> --json comments --jq '.comments[].body' \
+    | grep -o 'https://github.com/user-attachments/assets/[a-f0-9-]*' | tail -1
   ```
+
+  Put that URL in the README `<video>` tag.
 
 
 ## Performance measurement
