@@ -237,9 +237,9 @@ renders only those. Geometry is the quiet 800×496 skin:
 | Panel | 800×496, mantle `#1e2030`, radius 12, 1 px overlay hairline |
 | Top row | y 10, height 59, 20 px side inset |
 | Search field | left, 16 px inner padding, muted placeholder `Search...` |
-| Tabs | right-aligned, three 96×59 text labels, 8 px gap; active 40×2 underline |
+| Tabs | right-aligned, labels shrink-wrapped (38/28/70 px), 18 px gap; active underline matches the label width, 2 px tall |
 | List | y 89, x 20, width `panel - 58`, seven 48 px rows, 9 px gap |
-| Selection | absolute pill at the selected slot, blue at 16%, radius 8, 2 px rail |
+| Selection | absolute pill at the selected slot, blue at 16%, radius 8 |
 | Row | transparent; text always `#cad3f5`, icons retain their colours |
 | App icon | 32×32 at 9 px from the row's left edge; title at 57 px |
 | Run row | no icon; title at 15 px |
@@ -264,10 +264,13 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 (`reverse: false`: wheel down moves down). A click activates the row;
 `focus_on_window_activation` and `on_focus(false)` close the window.
 
-Motion lives in `ui/motion.rs`: the selection pill travels on a 0.24 s
-critically damped spring, the tab underline flies as a shared element on 0.22 s,
-and a mode swap slides the incoming list 10 px (0.18 s) while the outgoing one
-fades (0.14 s). Arrow keys, wheel and tab clicks animate; typing lands at once. `GOFI_MOTION=off` returns
+The tab underline is absolutely positioned at a fixed y, so selecting a tab
+never moves its label; its width follows the label. Motion lives in
+`ui/motion.rs`: the selection pill travels on a 0.17 s spring with 0.25 bounce
+(it overshoots ~1.6 px and settles in ~0.2 s), the tab underline flies as a
+shared element on 0.16 s with 0.2 bounce, and a mode swap slides the incoming
+list 10 px (0.14 s) while the outgoing one fades (0.11 s). Arrow keys, wheel and
+tab clicks animate; typing lands at once. `GOFI_MOTION=off` returns
 `Spring::NONE` / `Transition::none()` and marks the root `instant_changes`, so
 the resting view is pixel-identical. There is no open animation: the first frame
 is the final layout, and startup is not delayed.

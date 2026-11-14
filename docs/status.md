@@ -179,9 +179,29 @@
 - `just check` green (**81 tests**). E2E on/off, launch/copy, and the CJK query
   pass. Startup is **80 ms median / 100 ms p95** (20 runs, installed build); the
   previous installed build measured 90 ms median under the same harness in the
-  same session. The new build is installed at `~/.local/bin/gofi` (sha256
-  `bf010ae6…`).
+  same session. Installed at `~/.local/bin/gofi`.
 - Decision: [ADR 0010](decisions/0010-quiet-motion.md).
+
+## Tab and motion refinement (2026-11-14)
+
+Owner review of the first skin: tighten the tabs, stop the underline from lifting
+the selected label, drop the rail, and make the selection snappier.
+
+- Tabs now shrink-wrap their labels with an 18 px gap (was three 96 px cells with
+  8 px), and the underline is as wide as the label (38/28/70 px, was 40).
+- The underline is absolutely positioned at a fixed y, so selecting a tab no
+  longer moves its text up by 4 px. Unit test asserts the label's rect is
+  unchanged across a mode switch.
+- Removed the 2 px rail inside the selection pill; the 16% blue tint alone marks
+  the row.
+- Retuned motion: selection **0.17 s / 0.25 bounce** (was 0.24 / 0), tab flight
+  **0.16 s / 0.2 bounce** (was 0.22 / 0), mode swap **0.14 / 0.11 s** (was
+  0.18 / 0.14). The pill now reaches the next row in ~0.1 s and settles by
+  ~0.2 s, with a ~1.6 px overshoot; the old critically damped spring took
+  ~0.38 s to settle.
+- `just check` green (**83 tests**). E2E on/off still passes with byte-identical
+  resting screenshots (`56da2cd1…`), and launch/copy still passes. Installed at
+  `~/.local/bin/gofi` (sha256 `a880114e…`). Evidence `target/evidence/ui-tabs*`.
 
 ## In progress
 

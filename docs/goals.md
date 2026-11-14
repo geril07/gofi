@@ -86,10 +86,11 @@ pixel target.
 - Centred, borderless, no titlebar; fixed **800×496 logical px**, 12 px panel
   radius and a 1 px hairline border.
 - Top bar: search input on the left; Apps / Run / Clipboard text labels on the
-  right (96×59, 8 px gap, 40×2 active underline). No filled tab blocks.
+  right, shrink-wrapped with an 18 px gap and an active underline as wide as the
+  label. No filled tab blocks.
 - Matched query characters are bold with a 2 px underline in every row.
-- Selection: a tinted pill (blue at 16%) at the selected slot with a 2 px accent
-  rail; text stays `#cad3f5`, icons keep their colours.
+- Selection: a tinted pill (blue at 16%) at the selected slot; text stays
+  `#cad3f5`, icons keep their colours.
 - No metadata column, footer or preview pane.
 - Scrollbar: 8 px handle, blue, at the right edge.
 - Motion (ADR 0010): selection glide, tab indicator flight and a mode swap;

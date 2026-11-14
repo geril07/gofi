@@ -6,12 +6,13 @@
 
 use rune::{Spring, SpringPair, Transition};
 
-/// The selection pill's travel.
-pub const SELECT: Spring = Spring::new(0.24, 0.0);
+/// The selection pill's travel: short enough to feel immediate, with a little
+/// overshoot so it reads as motion rather than a slide.
+pub const SELECT: Spring = Spring::new(0.17, 0.25);
 /// The tab indicator's shared-element flight.
-pub const TAB: Spring = Spring::new(0.22, 0.0);
+pub const TAB: Spring = Spring::new(0.16, 0.2);
 /// A mode swap: enter slightly slower than exit.
-pub const MODE: SpringPair = SpringPair::new(Spring::new(0.18, 0.0), Spring::new(0.14, 0.0));
+pub const MODE: SpringPair = SpringPair::new(Spring::new(0.14, 0.0), Spring::new(0.11, 0.0));
 /// How far a mode list slides in and out.
 pub const MODE_SHIFT: f32 = 10.0;
 

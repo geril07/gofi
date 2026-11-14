@@ -550,18 +550,27 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
 - `scripts/e2e-launch.sh`: launch, frecency, clipboard copy, and no preview or ID
   in state/logs. Evidence `target/evidence/ui-final-actions/`.
 - The CJK query `日本` renders. Evidence `target/evidence/ui-final-cjk/`.
-- The installed copy (`sha256 bf010ae6…`) passes `e2e-sway.sh` and
+- The installed copy (`sha256 bf010ae6…` at the time) passes `e2e-sway.sh` and
   `e2e-launch.sh`; evidence `target/evidence/ui-installed*`.
-- `just check` is green (**81 tests**), including a unit test that finds the
-  selection pill mid-flight one frame after `Down` and on the next row after
-  settling.
+- `just check` is green (**83 tests**), including unit tests that find the
+  selection pill mid-flight one frame after `Down`, find the tab underline
+  mid-flight after `Tab`, and assert a tab label's rect is unchanged when the
+  selection moves.
 - Startup: **80 ms median / 100 ms p95** (20 runs on the installed build; a
   second 12-run pass measured 80/90). The previous installed 960×495 build
   measured **90 ms median** under the same harness in the same session, so
   session-to-session variance dominates the difference. A full-panel
   `clip_rounded` added ~10–15 ms; the rounded fill and border remain.
-- Motion is visual only: selection 0.24 s, tab shared-element 0.22 s, mode swap
-  10 px at 0.18/0.14 s. There is no open animation; the first frame is final.
+- Tab layout: shrink-wrapped labels, 18 px gap, underline as wide as the label
+  and out of flow. Evidence `target/evidence/ui-tabs/` (Apps selected),
+  `target/evidence/ui-tabs-run/` (Run selected) and the mid-flight contact sheet
+  copied from the nested screenshots as `target/evidence/ui-tabs-contact.png`.
+  Motion on and off still produce byte-identical resting captures
+  (`56da2cd1…`); the installed copy is `sha256 a880114e…`.
+- Motion is visual only: selection 0.17 s with 0.25 bounce (measured ~1.6 px
+  overshoot, settled by ~0.2 s), tab shared-element 0.16 s with 0.2 bounce, mode
+  swap 10 px at 0.14/0.11 s. There is no open animation; the first frame is
+  final.
 
 ## Performance measurement
 
