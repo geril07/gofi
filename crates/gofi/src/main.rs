@@ -5,7 +5,6 @@
 
 mod instance;
 mod launch;
-mod sway;
 mod ui;
 
 #[cfg(test)]

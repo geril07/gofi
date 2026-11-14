@@ -54,6 +54,12 @@ fn press(runtime: &mut Runtime<AppState>, key: Key) {
     runtime.frame(1.0 / 60.0);
 }
 
+fn settle(runtime: &mut Runtime<AppState>) {
+    for _ in 0..30 {
+        runtime.frame(1.0 / 60.0);
+    }
+}
+
 fn titles(runtime: &Runtime<AppState>) -> Vec<String> {
     runtime
         .state
@@ -72,7 +78,7 @@ fn close(actual: f32, expected: f32) -> bool {
 }
 
 #[test]
-fn geometry_matches_the_measured_rofi() {
+fn geometry_matches_the_panel() {
     let temp = TempDir::new().unwrap();
     let items = (0..10)
         .map(|index| app(&format!("app-{index}"), &format!("App {index}")))
@@ -82,28 +88,46 @@ fn geometry_matches_the_measured_rofi() {
     let (row, _) = runtime.presented("row-0").expect("first row");
     assert!(close(row[0], 20.0), "row x {}", row[0]);
     assert!(close(row[1], 89.0), "row y {}", row[1]);
-    assert!(close(row[2], 902.0), "row width {}", row[2]);
+    assert!(close(row[2], 742.0), "row width {}", row[2]);
     assert!(close(row[3], 48.0), "row height {}", row[3]);
 
     let (tab, _) = runtime.presented("tab-apps").expect("apps tab");
-    assert!(close(tab[0], 600.0), "tab x {}", tab[0]);
+    assert!(close(tab[0], 476.0), "tab x {}", tab[0]);
     assert!(close(tab[1], 10.0), "tab y {}", tab[1]);
-    assert!(close(tab[2], 100.0), "tab width {}", tab[2]);
+    assert!(close(tab[2], 96.0), "tab width {}", tab[2]);
     assert!(close(tab[3], 59.0), "tab height {}", tab[3]);
 
     let (scrollbar, _) = runtime.presented("scrollbar").expect("scrollbar");
-    assert!(close(scrollbar[0], 932.0), "scrollbar x {}", scrollbar[0]);
+    assert!(close(scrollbar[0], 772.0), "scrollbar x {}", scrollbar[0]);
     assert!(close(scrollbar[2], 8.0), "scrollbar width {}", scrollbar[2]);
     assert!(
-        close(scrollbar[3], 396.0),
+        close(scrollbar[3], 397.0),
         "scrollbar height {}",
         scrollbar[3]
     );
 
-    // rofi's handle: 396 * 7 / (10 + 7).
+    // The handle keeps rofi's proportion: 397 * 7 / (10 + 7).
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[0], 932.0), "handle x {}", handle[0]);
-    assert!(close(handle[3], 163.06), "handle height {}", handle[3]);
+    assert!(close(handle[0], 772.0), "handle x {}", handle[0]);
+    assert!(close(handle[3], 163.47), "handle height {}", handle[3]);
+}
+
+#[test]
+fn the_selection_pill_follows_the_selected_row() {
+    let temp = TempDir::new().unwrap();
+    let items = vec![app("a", "Alpha"), app("b", "Beta")];
+    let mut runtime = runtime(state(&temp, Mode::Apps, items));
+
+    let (pill, _) = runtime.presented("selection").expect("selection pill");
+    assert!(close(pill[0], 20.0), "pill x {}", pill[0]);
+    assert!(close(pill[1], 89.0), "pill y {}", pill[1]);
+    assert!(close(pill[2], 742.0), "pill width {}", pill[2]);
+    assert!(close(pill[3], 48.0), "pill height {}", pill[3]);
+
+    press(&mut runtime, Key::Down);
+    settle(&mut runtime);
+    let (pill, _) = runtime.presented("selection").expect("selection pill");
+    assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
 }
 
 #[test]
@@ -132,10 +156,10 @@ fn long_clipboard_titles_do_not_push_the_scrollbar() {
     let runtime = runtime(state(&temp, Mode::Clipboard, items));
 
     let (row, _) = runtime.presented("row-0").expect("first row");
-    assert!(close(row[2], 902.0), "row width {}", row[2]);
+    assert!(close(row[2], 742.0), "row width {}", row[2]);
 
     let (scrollbar, _) = runtime.presented("scrollbar").expect("scrollbar");
-    assert!(close(scrollbar[0], 932.0), "scrollbar x {}", scrollbar[0]);
+    assert!(close(scrollbar[0], 772.0), "scrollbar x {}", scrollbar[0]);
 }
 
 #[test]
@@ -147,7 +171,7 @@ fn scrollbar_follows_the_selection_and_stays_at_the_right_edge() {
     let mut runtime = runtime(state(&temp, Mode::Apps, items));
 
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[0], 932.0), "handle x {}", handle[0]);
+    assert!(close(handle[0], 772.0), "handle x {}", handle[0]);
     assert!(close(handle[1], 89.0), "handle y {}", handle[1]);
 
     for _ in 0..5 {
@@ -162,16 +186,16 @@ fn scrollbar_follows_the_selection_and_stays_at_the_right_edge() {
         "track {track:?} handle {handle:?} selected {}",
         runtime.state.selected
     );
-    assert!(close(handle[0], 932.0), "handle drifted: x {}", handle[0]);
-    assert!(close(handle[1], 218.41), "handle y {}", handle[1]);
+    assert!(close(handle[0], 772.0), "handle drifted: x {}", handle[0]);
+    assert!(close(handle[1], 218.74), "handle y {}", handle[1]);
 
     for _ in 0..4 {
         press(&mut runtime, Key::Down);
     }
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[0], 932.0), "handle drifted: x {}", handle[0]);
-    assert!(close(handle[1], 321.94), "handle y {}", handle[1]);
-    assert!(close(handle[3], 163.06), "handle height {}", handle[3]);
+    assert!(close(handle[0], 772.0), "handle drifted: x {}", handle[0]);
+    assert!(close(handle[1], 322.53), "handle y {}", handle[1]);
+    assert!(close(handle[3], 163.47), "handle height {}", handle[3]);
 }
 
 #[test]
@@ -181,7 +205,7 @@ fn a_short_list_keeps_a_handle_and_a_gap_below() {
     let mut runtime = runtime(state(&temp, Mode::Apps, items));
 
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[3], 277.2), "handle height {}", handle[3]);
+    assert!(close(handle[3], 277.9), "handle height {}", handle[3]);
     assert!(
         runtime.presented("row-3").is_none(),
         "a fourth row was drawn"
@@ -190,7 +214,7 @@ fn a_short_list_keeps_a_handle_and_a_gap_below() {
     press(&mut runtime, Key::Down);
     press(&mut runtime, Key::Down);
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[1], 207.8), "handle y {}", handle[1]);
+    assert!(close(handle[1], 208.1), "handle y {}", handle[1]);
 }
 
 #[test]
@@ -214,9 +238,9 @@ fn seven_rows_and_three_tabs_are_rendered() {
     for key in [
         "query",
         "tab-apps",
-        "tab-apps-glyph",
         "tab-run",
         "tab-clipboard",
+        "tab-indicator",
     ] {
         assert!(runtime.presented(key).is_some(), "{key} missing");
     }
@@ -385,9 +409,9 @@ fn home_end_and_page_keys_move_the_selection() {
     assert_eq!(runtime.state.selected, 19);
     assert_eq!(runtime.state.offset, 13);
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
-    assert!(close(handle[0], 932.0), "handle x {}", handle[0]);
+    assert!(close(handle[0], 772.0), "handle x {}", handle[0]);
     assert!(
-        close(handle[1] + handle[3], 485.0),
+        close(handle[1] + handle[3], 486.0),
         "the handle did not reach the bottom: {}",
         handle[1] + handle[3]
     );
