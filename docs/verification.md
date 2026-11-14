@@ -593,19 +593,21 @@ Sway, screen capture or live session is involved.
   clipboard mode reads a private `cliphist` DB seeded with demo strings. The run
   never reads the live clipboard, the host's app list or `$XDG_STATE_HOME/gofi`.
   The scenario's data is synthetic and safe to publish.
-- **Outputs.** `docs/assets/demo.mp4` (1920×1200, 60 fps) and
-  `docs/assets/launcher.png` (1600×992, transparent corners, taken at the
-  `still` mark). The README embeds an uploaded copy of the MP4, because GitHub
-  only plays video from a `user-attachments` URL, not from a file in the
-  repository; `docs/assets/demo.mp4` stays as the source. The still is not
+- **Outputs.** `docs/assets/demo.mp4` (1920×1200, 60 fps, the master),
+  `docs/assets/demo-web.mp4` (1280×800, 30 fps, H.264 Main@4.0, the README
+  copy) and `docs/assets/launcher.png` (1600×992, transparent corners, taken at
+  the `still` mark). The README embeds an uploaded copy of `demo-web.mp4`,
+  because GitHub only plays video from a `user-attachments` URL, not from a file
+  in the repository. The smaller Main-profile copy is used because more hardware
+  decoders handle it than the 1200p60 High@5.0 master. The still is not
   referenced from the README.
 - **Scenario.** Search ("firef"), two row moves, `PageDown`/`Home`, Tab to Run,
   an executable query ("ff"), Tab to Clipboard, row moves and `PageDown`, then
   Shift+Tab back to Apps and "gh". The `end` mark lands on the same resting
   state as the start.
-- **Checks.** `record-demo.sh` fails if the MP4 is not 1920×1200 at 60 fps or
-  the still is not 1600×992. Work files and logs are under
-  `target/evidence/demo/`.
+- **Checks.** `record-demo.sh` fails if `demo.mp4` is not 1920×1200 at 60 fps,
+  if `demo-web.mp4` is not H.264 Main 1280×800 at 30 fps, or if the still is not
+  1600×992. Work files and logs are under `target/evidence/demo/`.
 - **Publishing.** GitHub only renders a video player for an uploaded user
   asset. Attach the MP4 to a public issue or pull request comment with `gh`;
   GitHub rewrites a lone `![](path)` reference to the public asset URL. The raw
