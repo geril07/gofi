@@ -46,10 +46,10 @@ its own sake.
    previews, and copy the selected entry back with `cliphist decode | wl-copy`.
    No own clipboard database; cliphist remains the source of truth.
 
-The three modes preserve the current muscle memory. The launcher exposes a mode
-switcher matching rofi's tabs: Apps (magnifier), Run (`</>`), Clipboard
-(clipboard icon). The folder/filebrowser tab from rofi is dropped. The same modes
-are also reachable by CLI, so the tab is a convenience, not the only path.
+The three modes preserve the current muscle memory. The launcher exposes a text
+mode switcher — Apps, Run, Clipboard — with the folder/filebrowser tab dropped.
+The same modes are also reachable by CLI, so the tab is a convenience, not the
+only path.
 
 ### Matching and ranking
 
@@ -75,24 +75,26 @@ are also reachable by CLI, so the tab is a convenience, not the only path.
 - Query is empty and focused on open; the previous query is not restored by default.
 - Clipboard selection copies the entry and closes; do not paste automatically.
 
-### Look
+### Look (quiet skin, ADR 0010)
 
-Match the current rofi theme closely enough that the switch is invisible:
+The look is its own quiet skin; rofi remains the muscle-memory reference, not a
+pixel target.
 
-- Catppuccin Macchiato: mantle window, blue selection, base text on selection,
-  text `#cad3f5`, blue `#8aadf4`.
-- JetBrains Mono 16 (Rune may fall back to its bundled font if the system font is
-  unavailable; do not bundle the font unless licensing is clear).
-- 32 px icons, 7 visible rows, 48 px row height, 57 px pitch, 8 px row radius.
-- Centred, borderless, no titlebar; **50% of the output width × 495 logical px
-  height**. On the 1920×1080 output that is 960×495; on the 2560×1600 @ 1.5 laptop
-  output it is 853×495 logical (1279×742 physical). Verified against the real rofi
-  under the owner's config in nested Sway.
-- Top bar: search input on the left, three mode tabs (100×59, 8 px radius, 21 px
-  gap) on the right. Selected tab is blue; unselected tabs are base.
-- Matched query characters are bold and underlined in both selected and unselected rows.
-- Selected row: blue `#8aadf4`, mantle text. Unselected: text `#cad3f5`.
+- Catppuccin Macchiato: mantle window, text `#cad3f5`, blue `#8aadf4`.
+- JetBrains Mono (embedded; 21.33 px body).
+- 32 px icons, 7 visible rows, 48 px row height, 9 px gap, 8 px row radius.
+- Centred, borderless, no titlebar; fixed **800×496 logical px**, 12 px panel
+  radius and a 1 px hairline border.
+- Top bar: search input on the left; Apps / Run / Clipboard text labels on the
+  right (96×59, 8 px gap, 40×2 active underline). No filled tab blocks.
+- Matched query characters are bold with a 2 px underline in every row.
+- Selection: a tinted pill (blue at 16%) at the selected slot with a 2 px accent
+  rail; text stays `#cad3f5`, icons keep their colours.
+- No metadata column, footer or preview pane.
 - Scrollbar: 8 px handle, blue, at the right edge.
+- Motion (ADR 0010): selection glide, tab indicator flight and a mode swap;
+  typing is instant and there is no open animation. `GOFI_MOTION=off` disables
+  the layer without changing the resting UI.
 - No window shadow from the compositor if Swayfx adds one; the panel draws its own
   rounded background.
 
@@ -124,8 +126,7 @@ choosing.
 
 - `rune::set_app_id("gofi")` so window rules match `app_id="gofi"`.
 - Window rule: floating, borderless, centred,
-  `resize set 50 ppt 495 px`; does not affect other windows. This exactly matches
-  rofi's geometry on both the 1920×1080 and 2560×1600 @ 1.5 outputs.
+  `resize set 800 px 496 px`; does not affect other windows.
 - Keybinds replacing the rofi ones only after the daily-use checklist passes:
   - `Mod+Return` → `gofi`
   - `Mod+Shift+Return` → `gofi run`
@@ -208,7 +209,7 @@ non-app provider and validates that boundary.
 - Name `gofi`, MIT license.
 - Three tabs: Apps / Run / Clipboard; folder/filebrowser dropped.
 - `cliphist` is the clipboard source; gofi stores no clipboard data.
-- The window is 50% width × 495 logical height, centred (the Sway rule
-  `resize set 50 ppt 495 px`), verified against the real config on both outputs.
+- The window is a fixed 800×496 logical px, centred (the Sway rule
+  `resize set 800 px 496 px`); ADR 0010 replaced the rofi-parity geometry.
 - The window switcher stays out of MVP.
 - No Sway config changes: the integration snippet is documented in the README.

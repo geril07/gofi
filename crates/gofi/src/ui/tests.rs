@@ -125,6 +125,12 @@ fn the_selection_pill_follows_the_selected_row() {
     assert!(close(pill[3], 48.0), "pill height {}", pill[3]);
 
     press(&mut runtime, Key::Down);
+    let (pill, _) = runtime.presented("selection").expect("selection pill");
+    assert!(
+        pill[1] > 89.0 && pill[1] < 146.0,
+        "the pill should be mid-flight, y {}",
+        pill[1]
+    );
     settle(&mut runtime);
     let (pill, _) = runtime.presented("selection").expect("selection pill");
     assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
@@ -192,6 +198,7 @@ fn scrollbar_follows_the_selection_and_stays_at_the_right_edge() {
     for _ in 0..4 {
         press(&mut runtime, Key::Down);
     }
+    settle(&mut runtime);
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
     assert!(close(handle[0], 772.0), "handle drifted: x {}", handle[0]);
     assert!(close(handle[1], 322.53), "handle y {}", handle[1]);
@@ -213,6 +220,7 @@ fn a_short_list_keeps_a_handle_and_a_gap_below() {
 
     press(&mut runtime, Key::Down);
     press(&mut runtime, Key::Down);
+    settle(&mut runtime);
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");
     assert!(close(handle[1], 208.1), "handle y {}", handle[1]);
 }
@@ -406,6 +414,7 @@ fn home_end_and_page_keys_move_the_selection() {
     let mut runtime = runtime(state(&temp, Mode::Apps, items));
 
     press(&mut runtime, Key::End);
+    settle(&mut runtime);
     assert_eq!(runtime.state.selected, 19);
     assert_eq!(runtime.state.offset, 13);
     let (handle, _) = runtime.presented("scrollbar-handle").expect("handle");

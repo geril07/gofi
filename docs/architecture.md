@@ -220,27 +220,27 @@ This is the first non-app provider and validates the `Provider`/`Action` boundar
 ## Window geometry
 
 The launcher is a normal toplevel; Sway owns its placement and size. The rule
-`for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center`
-matches rofi's layer-shell geometry on both the 1920×1080 and 2560×1600 @ 1.5
-outputs (verified). At startup the app asks Sway for the focused output's logical
-width (`swaymsg -t get_outputs`) and requests half of it, so the rule does not
-resize the first frame; outside Sway it falls back to 960×495. The app never
-positions itself; Sway's rule owns placement. On another
-compositor, the equivalent rule/wrapper is the integration point.
+`for_window [app_id="gofi"] floating enable, border none, resize set 800 px 496 px, move position center`
+opens it at 800×496, centred on the focused workspace. The size is fixed, so
+there is no output-width query and no first-frame resize. `gaps inner` moves the
+centre but does not narrow the panel. The app never positions itself; Sway's rule
+owns placement. On another compositor, the equivalent rule/wrapper is the
+integration point.
 
 ## UI (M2)
 
 One Rune view, no scroll container: the visible slice is seven rows, so the view
-renders only those. Geometry is the measured rofi layout at a 960×495 panel:
+renders only those. Geometry is the quiet 800×496 skin:
 
 | Element | Geometry |
 |---|---|
-| Panel | full window, mantle `#1e2030`, no radius (the compositor may round it) |
+| Panel | 800×496, mantle `#1e2030`, radius 12, 1 px overlay hairline |
 | Top row | y 10, height 59, 20 px side inset |
-| Search field | left, 16 px inner padding, placeholder `Search...` |
-| Tabs | right-aligned, three 100×59 buttons, 20 px gap, radius 8 |
+| Search field | left, 16 px inner padding, muted placeholder `Search...` |
+| Tabs | right-aligned, three 96×59 text labels, 8 px gap; active 40×2 underline |
 | List | y 89, x 20, width `panel - 58`, seven 48 px rows, 9 px gap |
-| Row | radius 8; selected blue `#8aadf4` with mantle text |
+| Selection | absolute pill at the selected slot, blue at 16%, radius 8, 2 px rail |
+| Row | transparent; text always `#cad3f5`, icons retain their colours |
 | App icon | 32×32 at 9 px from the row's left edge; title at 57 px |
 | Run row | no icon; title at 15 px |
 | Scrollbar | 8 px at the right, base track, blue handle, rofi's length formula |
@@ -263,6 +263,14 @@ ends, `Tab`/`Shift+Tab` and `Shift+Right`/`Shift+Left` cycle modes, `Enter` (als
 Wheel over the list moves the selection one row per event, with rofi's direction
 (`reverse: false`: wheel down moves down). A click activates the row;
 `focus_on_window_activation` and `on_focus(false)` close the window.
+
+Motion lives in `ui/motion.rs`: the selection pill travels on a 0.24 s
+critically damped spring, the tab underline flies as a shared element on 0.22 s,
+and a mode swap slides the incoming list 10 px (0.18 s) while the outgoing one
+fades (0.14 s). Arrow keys, wheel and tab clicks animate; typing lands at once. `GOFI_MOTION=off` returns
+`Spring::NONE` / `Transition::none()` and marks the root `instant_changes`, so
+the resting view is pixel-identical. There is no open animation: the first frame
+is the final layout, and startup is not delayed.
 
 Match highlights come from `Ranked::positions`, which are **character** indices
 into the title; the view maps them to UTF-8 byte ranges and merges adjacent
@@ -288,8 +296,8 @@ to its first painted frame in the same harness, so the two are level; its earlie
 
 A one-shot process: Sway keybind runs `gofi`, window opens, selection launches and
 exits. This is simple and matches rofi. The real app measures **140 ms median
-readiness, p95 150 ms** with the pinned Rune, or **80/90 ms** with the startup
-patch (20 runs, nested Sway). Rofi is ~89 ms to its first painted frame in the
+readiness, p95 150 ms** with the pinned Rune, or **80/100 ms** with the startup
+patch (20 runs, nested Sway, installed quiet build). Rofi is ~89 ms to its first painted frame in the
 same harness. The remaining fixed cost is fresh-process Vulkan init and the
 compositor's first configure, so the resident daemon is the way below the
 one-shot floor (ADR 0007), not a requirement for rofi parity.

@@ -38,6 +38,9 @@ Use an ordinary borderless, transparent xdg-toplevel window for the MVP:
 - Do not use `App::overlay` for the launcher until Rune can grant immediate keyboard
   focus to a layer-shell surface.
 
+ADR 0010 later replaced the 50% × 495 geometry with a fixed 800×496 panel; the
+surface decision above is unchanged.
+
 ## Verification (2026-11-10)
 
 A throwaway Rune app with `set_app_id("gofi")` and a 700×480 borderless transparent

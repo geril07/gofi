@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-13
+**Last updated:** 2026-11-14
 **Phase:** M3 complete → M4 — Sway integration and daily use
 
 ## Done
@@ -160,21 +160,44 @@
     `just check-rune` verifies the pin and every patch. Upstreaming the Rune
     patches is deferred.
 
+## UI refresh (2026-11-14)
+
+- Replaced the rofi-parity skin with the quiet **800×496** panel: a tinted
+  selection pill at the selected slot plus a 2 px accent rail, text tabs with a
+  40×2 underline, 12 px panel radius, hairline border. No metadata column, no
+  footer, no preview pane.
+- The fixed size removed the `swaymsg` output query. The Sway rule is now
+  `resize set 800 px 496 px`; e2e asserts 800×496 at 560,292.
+- Added `ui/motion.rs`: selection glide 0.24 s, tab shared-element flight 0.22 s,
+  and a mode swap that slides the incoming list 10 px (0.18 s) while the outgoing
+  one fades (0.14 s). Typing stays instant and there is no open animation.
+  `GOFI_MOTION=off` returns `Spring::NONE` / `Transition::none()` and
+  marks the root `instant_changes`; resting screenshots with motion on and off are
+  byte-identical (`target/evidence/ui-final*`).
+- A full-panel `clip_rounded` cost ~10–15 ms on the first frame; the rounded fill
+  and border remain, and children are inset so nothing needs clipping.
+- `just check` green (**81 tests**). E2E on/off, launch/copy, and the CJK query
+  pass. Startup is **80 ms median / 100 ms p95** (20 runs, installed build); the
+  previous installed build measured 90 ms median under the same harness in the
+  same session. The new build is installed at `~/.local/bin/gofi` (sha256
+  `bf010ae6…`).
+- Decision: [ADR 0010](decisions/0010-quiet-motion.md).
+
 ## In progress
 
 Nothing. **M4 — Sway integration and daily use — is next.**
 
 ## Next (ordered)
 
-1. **Sway integration**: gofi is installed at `~/.local/bin/gofi`; the owner adds
-   the window-rule snippet from the README and points the keybinds at it. No config
-   was changed by this project.
+1. **Sway integration**: `~/.local/bin/gofi` is the new build; replace the window
+   rule with `resize set 800 px 496 px` and point the keybinds at gofi. No config
+   is changed by this project.
 2. **Daily-use checklist** for one week, keeping rofi as the fallback.
 3. **Polish from real use**: IME check, any ranking/look adjustments, then
    review and independent verification.
-4. **Startup**: the patched build is installed and measures 80/90 ms, level with
-   rofi's ~89 ms to first pixels. Upstreaming the Rune patch is deferred; the
-   resident daemon (ADR 0007) is optional work to go below the one-shot floor.
+4. **Startup**: the quiet build measures 80/100 ms, level with the previous build
+   and rofi's ~89 ms. Upstreaming the Rune patch is deferred; the resident daemon
+   (ADR 0007) is optional work to go below the one-shot floor.
 
 ## Repository
 
@@ -188,9 +211,9 @@ None hard.
 
 - Cold start is measured under nested headless Sway. The client renders with the
   real GPU (RADV), while the harness compositor uses pixman; only presentation is
-  software-composited. First frame is **140 ms median, p95 150 ms** with the
-  pinned Rune, or **80/90 ms** with the startup patch. Rofi is ~89 ms to its
-  first painted frame in the same harness, so they are level, not 22 ms apart.
+  software-composited. First frame is **80 ms median, 100 ms p95** with the quiet
+  skin and startup patch. Rofi is ~89 ms to its first painted frame in the same
+  harness, so they are level.
   The remaining fixed cost is Rune/wgpu's fresh-process GPU init and the
   compositor's first configure, not the provider. Re-measure on the owner's
   Swayfx session before promising the p95.
@@ -203,13 +226,15 @@ None hard.
 - Rune is pre-release; API churn is expected. The revision is pinned and
   `scripts/check-rune.sh` enforces it and the local patches.
 - Layer-shell immediate keyboard focus is not available; the ordinary-window path is
-  the workaround (ADR 0003). The window is 1 px above rofi's y on a 1080p output.
+  the workaround (ADR 0003). With a bar, the workspace-centred panel sits below the
+  bar rather than at the output's centre.
 
 ## Open questions for the owner
 
 None. Resolved: `gofi`, MIT; three tabs (Apps / Run / Clipboard); `cliphist` as
-the clipboard source; the 50% × 495 geometry; the window switcher stays out of
-MVP; no Sway config changes by this project.
+the clipboard source; the 800×496 quiet panel; no metadata, footer or preview;
+motion behind `GOFI_MOTION`; the window switcher stays out of MVP; no Sway config
+changes by this project.
 
 ## References
 

@@ -411,7 +411,7 @@ rm -rf "$RT"; mkdir -p "$RT"; chmod 700 "$RT"
 cat > "$RT/config" <<'EOF'
 output HEADLESS-1 resolution 1920x1080
 default_border none
-for_window [app_id="gofi"] floating enable, border none, resize set 50 ppt 495 px, move position center
+for_window [app_id="gofi"] floating enable, border none, resize set 800 px 496 px, move position center
 EOF
 
 env -u SWAYSOCK -u I3SOCK \
@@ -477,8 +477,8 @@ This was found during the M0 surface spike (2026-11-10). The launcher surface
 spike verified `app_id="gofi"`, the Sway float/centre rule, text input, Escape and
 focus-loss close with a live virtual keyboard.
 
-The script asserts the target geometry: 960×495 at 480,293 on a 1920×1080 output.
-That is 50% width × 495 logical height, centred.
+The script asserts the target geometry: 800×496 at 560,292 on a 1920×1080 output.
+That is the fixed quiet-skin size, centred.
 
 Notes:
 
@@ -508,7 +508,7 @@ Then launch the real `rofi -show drun` with `DISPLAY` unset and the nested
 `WAYLAND_DISPLAY`, capture with `grim`, and measure the panel bbox (background
 `#1e2030`). Rofi is layer-shell, so it does not appear in `swaymsg -t get_tree`.
 
-Verified results:
+Verified results (rofi-parity phase; the quiet skin is 800×496 now):
 
 | Output | Rofi panel | Gofi toplevel with the rule |
 |---|---|---|
@@ -535,6 +535,33 @@ run clipboard tests against the live `WAYLAND_DISPLAY`.
 
 Verified 2026-11-10 with a private DB: `cliphist store` → `list` (id + preview) →
 `decode` → `wl-copy` → `wl-paste` returned the test value under nested Sway.
+
+## Quiet skin and motion (2026-11-14)
+
+ADR 0010 replaces the rofi-parity skin with a fixed 800×496 panel. The nested
+harness, `e2e-launch.sh` and `measure-startup.sh` use
+`resize set 800 px 496 px`.
+
+- `scripts/e2e-sway.sh`: **800×496 at 560,292**; focus, typing, Escape and the
+  second-invocation close pass. Evidence `target/evidence/ui-final/`.
+- The same run with `GOFI_MOTION=off` passes, and `typed.png` is byte-identical
+  to the motion-on capture (sha256 `9d3c5d31…`). The resting UI has no motion
+  dependency. Evidence `target/evidence/ui-final-off/`.
+- `scripts/e2e-launch.sh`: launch, frecency, clipboard copy, and no preview or ID
+  in state/logs. Evidence `target/evidence/ui-final-actions/`.
+- The CJK query `日本` renders. Evidence `target/evidence/ui-final-cjk/`.
+- The installed copy (`sha256 bf010ae6…`) passes `e2e-sway.sh` and
+  `e2e-launch.sh`; evidence `target/evidence/ui-installed*`.
+- `just check` is green (**81 tests**), including a unit test that finds the
+  selection pill mid-flight one frame after `Down` and on the next row after
+  settling.
+- Startup: **80 ms median / 100 ms p95** (20 runs on the installed build; a
+  second 12-run pass measured 80/90). The previous installed 960×495 build
+  measured **90 ms median** under the same harness in the same session, so
+  session-to-session variance dominates the difference. A full-panel
+  `clip_rounded` added ~10–15 ms; the rounded fill and border remain.
+- Motion is visual only: selection 0.24 s, tab shared-element 0.22 s, mode swap
+  10 px at 0.18/0.14 s. There is no open animation; the first frame is final.
 
 ## Performance measurement
 
