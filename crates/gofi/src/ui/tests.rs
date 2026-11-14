@@ -306,6 +306,29 @@ fn seven_rows_and_three_tabs_are_rendered() {
 }
 
 #[test]
+fn a_long_query_does_not_push_the_tabs() {
+    let temp = TempDir::new().unwrap();
+    let items = vec![app("alpha", "Alpha")];
+    let mut runtime = runtime(state(&temp, Mode::Apps, items));
+
+    let (tabs_before, _) = runtime.presented("tab-apps").expect("apps tab");
+    let (field_before, _) = runtime.presented("query").expect("query");
+    for _ in 0..120 {
+        press(&mut runtime, Key::Text("x".into()));
+    }
+
+    let (tabs_after, _) = runtime.presented("tab-apps").expect("apps tab");
+    assert_eq!(tabs_after, tabs_before, "the tabs moved");
+    let (field_after, _) = runtime.presented("query").expect("query");
+    assert_eq!(field_after[2], field_before[2], "the field widened");
+    let (clipboard, _) = runtime.presented("tab-clipboard").expect("clipboard tab");
+    assert!(
+        close(clipboard[0] + clipboard[2], 780.0),
+        "the tabs left the panel"
+    );
+}
+
+#[test]
 fn typing_filters_and_selects_the_first_match() {
     let temp = TempDir::new().unwrap();
     let items = vec![

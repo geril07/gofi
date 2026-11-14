@@ -236,7 +236,7 @@ renders only those. Geometry is the quiet 800×496 skin:
 |---|---|
 | Panel | 800×496, mantle `#1e2030`, radius 12, 1 px overlay hairline |
 | Top row | y 10, height 59, 20 px side inset |
-| Search field | left, 16 px inner padding, muted placeholder `Search...` |
+| Search field | left, 16 px inner padding, muted placeholder `Search...`; fixed width, a long query scrolls under the caret |
 | Tabs | right-aligned, labels shrink-wrapped (38/28/70 px), 18 px gap; active underline matches the label width, 2 px tall |
 | List | y 89, x 20, width `panel - 58`, seven 48 px rows, 9 px gap |
 | Selection | absolute pill at the selected slot, blue at 16%, radius 8 |
@@ -264,8 +264,10 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 (`reverse: false`: wheel down moves down). A click activates the row;
 `focus_on_window_activation` and `on_focus(false)` close the window.
 
-The tab underline is absolutely positioned at a fixed y, so selecting a tab
-never moves its label; its width follows the label. Motion lives in
+The search row takes the space left over and may shrink, so a long query
+scrolls inside it instead of widening the field and pushing the tabs. The tab
+underline is absolutely positioned at a fixed y, so selecting a tab never moves
+its label; its width follows the label. Motion lives in
 `ui/motion.rs`: the selection pill travels on a 0.17 s spring with 0.25 bounce
 (it overshoots ~1.6 px and settles in ~0.2 s), the tab underline flies as a
 shared element on 0.16 s with 0.2 bounce, and a mode swap slides the incoming

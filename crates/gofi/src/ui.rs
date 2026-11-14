@@ -538,6 +538,9 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
     let field = text_input(&state.query, BODY)
         .key("query")
         .single_line()
+        // Static width: a long query scrolls inside the field instead of
+        // widening it and pushing the tabs off the panel.
+        .shrink()
         .grow(1.0)
         .h(26.0)
         .px(16.0)
@@ -548,7 +551,7 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
         .on_input_change(|state: &mut AppState, _tx| state.on_query_changed())
         .on_submit(|state: &mut AppState, tx| state.activate(state.selected, tx));
 
-    row().h_full().grow(1.0).center_y().child(field)
+    row().h_full().grow(1.0).shrink().center_y().child(field)
 }
 
 fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {

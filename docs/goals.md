@@ -85,9 +85,10 @@ pixel target.
 - 32 px icons, 7 visible rows, 48 px row height, 9 px gap, 8 px row radius.
 - Centred, borderless, no titlebar; fixed **800×496 logical px**, 12 px panel
   radius and a 1 px hairline border.
-- Top bar: search input on the left; Apps / Run / Clipboard text labels on the
-  right, shrink-wrapped with an 18 px gap and an active underline as wide as the
-  label. No filled tab blocks.
+- Top bar: search input on the left with a fixed share of the row — a long query
+  scrolls inside it and never moves the tabs; Apps / Run / Clipboard text labels
+  on the right, shrink-wrapped with an 18 px gap and an active underline as wide
+  as the label. No filled tab blocks.
 - Matched query characters are bold with a 2 px underline in every row.
 - Selection: a tinted pill (blue at 16%) at the selected slot; text stays
   `#cad3f5`, icons keep their colours.

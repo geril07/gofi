@@ -199,9 +199,13 @@ the selected label, drop the rail, and make the selection snappier.
   0.18 / 0.14). The pill now reaches the next row in ~0.1 s and settles by
   ~0.2 s, with a ~1.6 px overshoot; the old critically damped spring took
   ~0.38 s to settle.
-- `just check` green (**83 tests**). E2E on/off still passes with byte-identical
-  resting screenshots (`56da2cd1…`), and launch/copy still passes. Installed at
-  `~/.local/bin/gofi` (sha256 `a880114e…`). Evidence `target/evidence/ui-tabs*`.
+- The search row can shrink, so a long query scrolls inside the field instead of
+  widening it and pushing the tabs off the panel. Unit test types 120 chars and
+  asserts the tab rect and field width are unchanged.
+- `just check` green (**84 tests**). E2E on/off still passes with byte-identical
+  resting screenshots (`56da2cd1…`), and launch/copy still passes. A 60-char
+  query leaves the tabs in place (`target/evidence/long-query-fixed/`). Installed
+  at `~/.local/bin/gofi` (sha256 `e6440375…`). Evidence `target/evidence/ui-tabs*`.
 
 ## In progress
 
