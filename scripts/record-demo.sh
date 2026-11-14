@@ -8,7 +8,7 @@
 # Usage:
 #   scripts/record-demo.sh --binary target/release/gofi [--out docs/assets]
 #
-# Outputs: <out>/demo.gif, <out>/demo.mp4, <out>/launcher.png
+# Outputs: <out>/demo.mp4, <out>/launcher.png
 # Work dir: target/evidence/demo (fixtures, frames, logs).
 
 set -euo pipefail
@@ -16,9 +16,6 @@ set -euo pipefail
 BINARY="target/release/gofi"
 OUT="docs/assets"
 FPS=60
-GIF_FPS=25
-GIF_W=960
-GIF_H=600
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -172,19 +169,14 @@ demo_env "$BINARY" --record \
   --at mark:still \
   --scale 2 >>"$WORK/render.log" 2>&1
 
-ffmpeg -v error -y -i "$WORK/demo.mp4" \
-  -vf "fps=$GIF_FPS,scale=$GIF_W:$GIF_H:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=192:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
-  -loop 0 "$OUT/demo.gif"
-
 cp "$WORK/demo.mp4" "$OUT/demo.mp4"
 cp "$WORK/launcher.png" "$OUT/launcher.png"
 
-bytes=$(stat -c %s "$OUT/demo.gif")
-[ "$bytes" -lt 5000000 ] || { echo "demo.gif is too large: $bytes bytes" >&2; exit 1; }
 [ "$(identify -format '%wx%h' "$OUT/launcher.png" | head -1)" = "1600x992" ] \
   || { echo "launcher.png is not 1600x992" >&2; exit 1; }
+[ "$(ffprobe -v error -select_streams v:0 -show_entries stream=width,height,r_frame_rate -of csv=p=0 "$OUT/demo.mp4")" = "1920,1200,60/1" ] \
+  || { echo "demo.mp4 is not 1920x1200 at 60 fps" >&2; exit 1; }
 
-printf 'demo.gif  %sx%s  %s fps  %s KB\n' "$GIF_W" "$GIF_H" "$GIF_FPS" "$((bytes / 1024))"
-printf 'demo.mp4  %sx%s  %s fps\n' 1920 1200 "$FPS"
+printf 'demo.mp4  %sx%s  %s fps  %s KB\n' 1920 1200 "$FPS" "$(( $(stat -c %s "$OUT/demo.mp4") / 1024 ))"
 printf 'launcher  1600x992\n'
 printf 'work      %s\n' "$WORK"
