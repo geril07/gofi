@@ -92,10 +92,23 @@ fn geometry_matches_the_panel() {
     assert!(close(row[3], 48.0), "row height {}", row[3]);
 
     let (tab, _) = runtime.presented("tab-apps").expect("apps tab");
-    assert!(close(tab[0], 476.0), "tab x {}", tab[0]);
+    assert!(close(tab[0], 608.0), "tab x {}", tab[0]);
     assert!(close(tab[1], 10.0), "tab y {}", tab[1]);
-    assert!(close(tab[2], 96.0), "tab width {}", tab[2]);
+    assert!(close(tab[2], 38.0), "tab width {}", tab[2]);
     assert!(close(tab[3], 59.0), "tab height {}", tab[3]);
+
+    // Tabs shrink-wrap: 18 px between labels, the last flush with the inset.
+    let (run, _) = runtime.presented("tab-run").expect("run tab");
+    let (clipboard, _) = runtime.presented("tab-clipboard").expect("clipboard tab");
+    assert!(close(tab[0] + tab[2] + 18.0, run[0]), "apps-run gap");
+    assert!(
+        close(run[0] + run[2] + 18.0, clipboard[0]),
+        "run-clipboard gap"
+    );
+    assert!(
+        close(clipboard[0] + clipboard[2], 780.0),
+        "tabs do not end at the inset"
+    );
 
     let (scrollbar, _) = runtime.presented("scrollbar").expect("scrollbar");
     assert!(close(scrollbar[0], 772.0), "scrollbar x {}", scrollbar[0]);
@@ -134,6 +147,44 @@ fn the_selection_pill_follows_the_selected_row() {
     settle(&mut runtime);
     let (pill, _) = runtime.presented("selection").expect("selection pill");
     assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
+}
+
+#[test]
+fn the_tab_indicator_flies_between_labels() {
+    let temp = TempDir::new().unwrap();
+    let items = vec![app("a", "Alpha")];
+    let mut runtime = runtime(state(&temp, Mode::Apps, items));
+
+    let (apps, _) = runtime.presented("tab-indicator").expect("indicator");
+    press(&mut runtime, Key::Tab);
+    let (flying, _) = runtime.presented("tab-indicator").expect("indicator");
+    assert!(
+        flying[0] > apps[0] && flying[0] < 664.0,
+        "the indicator should be mid-flight, x {}",
+        flying[0]
+    );
+    settle(&mut runtime);
+    let (run, _) = runtime.presented("tab-indicator").expect("indicator");
+    assert!(close(run[0], 664.0), "indicator x after Tab {}", run[0]);
+    assert!(close(run[2], 28.0), "indicator width {}", run[2]);
+}
+
+#[test]
+fn selecting_a_tab_does_not_move_its_label() {
+    let temp = TempDir::new().unwrap();
+    let items = vec![app("a", "Alpha")];
+    let mut runtime = runtime(state(&temp, Mode::Apps, items));
+
+    let (label, _) = runtime.presented("tab-apps-label").expect("apps label");
+    let (indicator, _) = runtime.presented("tab-indicator").expect("indicator");
+    assert!(close(indicator[2], label[2]), "indicator under the label");
+
+    press(&mut runtime, Key::Tab);
+    settle(&mut runtime);
+
+    let (after, _) = runtime.presented("tab-apps-label").expect("apps label");
+    assert_eq!(after[1], label[1], "the label moved vertically");
+    assert!(close(after[3], label[3]), "the label changed height");
 }
 
 #[test]

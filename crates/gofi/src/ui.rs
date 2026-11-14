@@ -36,13 +36,15 @@ const TOP_H: f32 = 59.0;
 const ROW_H: f32 = 48.0;
 const ROW_GAP: f32 = 9.0;
 const VISIBLE: usize = 7;
-const TAB_W: f32 = 96.0;
-const TAB_GAP: f32 = 8.0;
+/// Tabs shrink-wrap their labels; the gap is the only space between them.
+const TAB_GAP: f32 = 18.0;
 const TOP_GAP: f32 = 20.0;
-const TAB_UNDERLINE_W: f32 = 40.0;
+/// Six pixels under the text box: the underline is out of flow, so it never moves it.
+const TAB_UNDERLINE_TOP: f32 = 45.5;
+const TAB_UNDERLINE_H: f32 = 2.0;
 const PANEL_RADIUS: f32 = 12.0;
 const ROW_RADIUS: f32 = 8.0;
-/// A tinted selection instead of rofi's filled bar; the rail keeps it legible.
+/// A tinted selection instead of rofi's filled bar.
 const SELECTION_ALPHA: f32 = 0.16;
 const ICON: f32 = 32.0;
 const SCROLLBAR_W: f32 = 8.0;
@@ -680,17 +682,23 @@ fn tab_button(state: &AppState, palette: &Palette, mode: Mode, motion: &Motion) 
 
     let mut tab = col()
         .key(format!("tab-{}", mode.as_str()))
-        .w(TAB_W)
         .h(TOP_H)
         .center()
-        .gap(6.0)
-        .child(text(tab_label(mode)).font(TAB_TEXT).color(ink));
+        .child(
+            text(tab_label(mode))
+                .key(format!("tab-{}-label", mode.as_str()))
+                .font(TAB_TEXT)
+                .color(ink),
+        );
 
     if selected {
+        // Out of flow so selecting a tab does not shift its label; width follows
+        // the label, which also gives the shared-element flight its new size.
         let mut indicator = el()
             .key("tab-indicator")
-            .w(TAB_UNDERLINE_W)
-            .h(2.0)
+            .absolute(0.0, TAB_UNDERLINE_TOP)
+            .w_full()
+            .h(TAB_UNDERLINE_H)
             .radius(1.0)
             .fill(palette.blue);
         if motion.enabled() {
@@ -812,13 +820,6 @@ fn selection_pill(palette: &Palette, slot: usize, motion: &Motion) -> El {
         .h(ROW_H)
         .radius(ROW_RADIUS)
         .fill(palette.blue.alpha(SELECTION_ALPHA))
-        .child(
-            el().absolute(0.0, 10.0)
-                .w(2.0)
-                .h(28.0)
-                .radius(1.0)
-                .fill(palette.blue),
-        )
 }
 
 struct RowSpec<'a> {

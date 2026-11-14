@@ -20,13 +20,14 @@ delay the content the launcher exists to show.
 - The panel is a fixed **800×496**, radius 12, 1 px hairline; seven 48 px rows,
   32 px icons and an 8 px scrollbar. Sway opens it with
   `resize set 800 px 496 px`; gofi no longer queries the output width.
-- The selection is a **tinted pill** (blue at 16%) with a 2 px accent rail, not a
-  filled bar. Mode tabs are text labels with a 40×2 underline, not icon blocks.
+- The selection is a **tinted pill** (blue at 16%), not a filled bar. Mode tabs are
+  shrink-wrapped text labels with an 18 px gap and an underline as wide as the
+  label; the underline is out of flow so selecting a tab never moves its text.
   No metadata column, footer or preview pane.
-- Motion is its own module, `ui/motion.rs`. Selection travels on a 0.24 s spring,
-  the tab underline is a shared element on 0.22 s, and a mode swap slides the
-  incoming list 10 px while the outgoing one fades (0.18 s / 0.14 s). Typing is
-  instant; there is no open animation.
+- Motion is its own module, `ui/motion.rs`. Selection travels on a 0.17 s spring
+  with 0.25 bounce, the tab underline is a shared element on 0.16 s with 0.2
+  bounce, and a mode swap slides the incoming list 10 px while the outgoing one
+  fades (0.14 s / 0.11 s). Typing is instant; there is no open animation.
 - `GOFI_MOTION=off` (also `0`, `false`, `no`, `none`) returns `Spring::NONE` /
   `Transition::none()` and marks the root `instant_changes`. The resting view is
   pixel-identical with motion on or off.
