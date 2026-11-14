@@ -566,7 +566,9 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
   `target/evidence/ui-tabs-run/` (Run selected) and the mid-flight contact sheet
   copied from the nested screenshots as `target/evidence/ui-tabs-contact.png`.
   Motion on and off still produce byte-identical resting captures
-  (`56da2cd1…`); the installed copy is `sha256 a880114e…`.
+  (`56da2cd1…`); the installed copy is `sha256 e6440375…`.
+- A 60-character query keeps the tabs at their resting x and scrolls inside the
+  field. Evidence `target/evidence/long-query-fixed/`.
 - Motion is visual only: selection 0.17 s with 0.25 bounce (measured ~1.6 px
   overshoot, settled by ~0.2 s), tab shared-element 0.16 s with 0.2 bounce, mode
   swap 10 px at 0.14/0.11 s. There is no open animation; the first frame is
