@@ -4,8 +4,6 @@
 
 <video src="https://github.com/user-attachments/assets/a0cbf96d-a24f-4233-90c7-df2ae20030f2" controls muted></video>
 
-<sub>Demo data is synthetic.</sub>
-
 A fast, native Wayland launcher for Sway: applications, executables and clipboard
 history with fuzzy matching and frecency. Built in Rust on
 [Rune](https://github.com/anomalyco/rune).
