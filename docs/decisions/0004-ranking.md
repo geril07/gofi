@@ -53,8 +53,8 @@ autocompletion rather than pickers.
 A keyword-only match has no visible position and sorts after every match that has
 one.
 
-Clipboard is still unsorted by design (ADR 0008); giving it match ordering is
-tracked in [#6](https://github.com/geril07/gofi/issues/6).
+Clipboard shares these keys but has no frecency: equal scores fall to cliphist's
+list index (recency), not the title (ADR 0008, amended 2026-11-14).
 
 ## Consequences
 
@@ -63,8 +63,8 @@ tracked in [#6](https://github.com/geril07/gofi/issues/6).
 - Score ties now resolve by match position before title; the fixed corpus test that
   relied on title order for equal scores was updated.
 - The frecency key is per mode (`apps:<desktop-id>`, `run:exec:<name>`), so the same
-  name in apps and run does not share history. Clipboard has no frecency and keeps
-  cliphist's recency order (ADR 0008).
+  name in apps and run does not share history. Clipboard has no frecency and sorts
+  by cliphist's list index after the match keys (ADR 0008).
 - Scores are not stable across nucleo versions; update tests by ordering, not numbers.
 
 ## Revisit when

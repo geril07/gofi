@@ -60,9 +60,10 @@ only path.
 - Empty query: most frecent first, then alphabetical.
 - Frecency may promote a slightly worse match, but must not override a clearly
   better one. The exact blend is an ADR; tune with a fixed corpus of real queries.
-- Clipboard mode is the exception: it uses cliphist's recency order, fuzzy-filters
-  the previews, and does **not** persist or rank by frecency. Clipboard contents are
-  sensitive; keep them out of state and logs.
+- Clipboard mode ranks previews like the other modes — match score, then match
+  position, then cliphist's recency order — but does **not** persist anything or
+  apply frecency. An empty query is pure recency. Clipboard contents are sensitive;
+  keep them out of state and logs.
 
 ### Interaction (parity with current rofi)
 

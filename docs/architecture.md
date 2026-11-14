@@ -114,16 +114,17 @@ Composite ordering:
 2. `top = max(match_score)`.
 3. `frecency_norm = score / (score + K)` with `K ≈ 10` (saturating).
 4. `composite = match_score + 0.15 * top * frecency_norm`.
-5. Sort by `composite` desc, then title asc.
+5. Sort by `composite` desc, then first matched character asc, then title asc.
 
 Empty query: `composite = frecency_norm`, then title. This lets a frequent item
 break ties and promote a slightly worse match, but a clearly better match wins.
 The 0.15 factor and K are tuning constants; the fixed corpus test pins the intended
 ordering, not the exact numbers.
 
-Clipboard mode is the exception: filter by fuzzy match, but keep cliphist's recency
-order. Do not apply frecency, do not persist clipboard IDs, and do not reorder by
-score. The most recent matching entry is usually the intended one.
+Clipboard mode shares the match ordering but never blends frecency: match score
+desc, first matched character asc, then the row's index in `cliphist list` (recency,
+newest first). Do not apply frecency and do not persist clipboard IDs; the index is
+already in memory. An empty query is pure recency.
 
 ## Frecency
 
@@ -173,8 +174,9 @@ store`). Use it as the source of truth:
 
 - `cliphist list` → lines `id<TAB>preview` (preview width 100 by default, max 750
   entries). Parse at the first tab; keep the preview as the row title.
-- Filter previews with the same nucleo matcher, but keep cliphist order (most recent
-  first). Do not apply frecency.
+- Rank previews with the same nucleo matcher: match score desc, then first matched
+  character asc, then the row's index in `cliphist list` (recency). Do not apply
+  frecency.
 - `Action::CopyClipboard { id }` runs `cliphist decode <id>` with stdout piped into
   `wl-copy` stdin. Stream the bytes; do not buffer a large image if it can be avoided.
 - Show a generic clipboard icon; image thumbnails are out of MVP.

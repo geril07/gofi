@@ -224,7 +224,8 @@ the selected label, drop the rail, and make the selection snappier.
 
 - Equal match scores now break by the first matched character's position in the
   title before the title itself, so a match at offset 8 no longer beats one at 0
-  on its name alone. Apps and Run only; Clipboard keeps cliphist's order.
+  on its name alone. Apps and Run; Clipboard uses the same key, then its list
+  index (see below).
 - A clearly better match still wins: for `ed`, `Text Editor` (62, start 5) stays
   above `Redshift` (36, start 1). The tiebreak only fires on exact ties.
 - Real app list, `-q te`: Telegram and Text Editor (62, start 0) now precede
@@ -232,10 +233,29 @@ the selected label, drop the rail, and make the selection snappier.
 - `word_boundary_matches_beat_mid_word_matches` changed: its two mid-word matches
   tie at 76, so "Xterm Settings Manager" (start 1) now precedes "Determinate"
   (start 2).
-- Clipboard match-quality sorting is a gap, not a decision: issue
-  [#6](https://github.com/geril07/gofi/issues/6). ADR 0008 is unchanged until it
-  is resolved.
-- ADR 0004 amended; three tests pin the tiebreak. `just check` green (**89 tests**).
+- ADR 0004 amended; three tests pin the tiebreak.
+
+## Clipboard ranking (2026-11-14)
+
+- Clipboard now ranks by nucleo match score desc, then first matched character
+  asc, then the row's index in `cliphist list` (recency). No frecency and no
+  persisted IDs; the index is already in memory.
+- Empty query is unchanged: all scores and positions tie, so it stays pure
+  recency. With a query, a strong older match now beats a weak newer one; the
+  owner accepted that tradeoff.
+- Apps, Run and Clipboard share the first two keys (`sort_by_match_quality`); only
+  the final key differs (title vs list index).
+- Tests: `clipboard_best_match_first_then_recency`,
+  `clipboard_equal_scores_prefer_the_earlier_match`,
+  `clipboard_equal_scores_and_positions_fall_back_to_recency`; the old
+  `clipboard_filters_but_keeps_provider_order` was inverted. Empty-query order is
+  still pinned.
+- ADR 0008 amended (2026-11-14); issue
+  [#6](https://github.com/geril07/gofi/issues/6) is resolved.
+- Synthetic-DB check: `-q test` puts `cargo test --workspace` (114) above
+  `contest results...` (76); `-q git` groups both 88s before the mid-word
+  `github` hit (84); 750 entries still rank in 13–16 ms. `just check` green
+  (**91 tests**).
 
 ## In progress
 

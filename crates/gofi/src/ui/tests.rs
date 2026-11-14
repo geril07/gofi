@@ -573,7 +573,7 @@ fn an_empty_corpus_renders_without_rows() {
 }
 
 #[test]
-fn clipboard_rows_use_the_generic_icon_and_keep_provider_order() {
+fn clipboard_rows_use_the_generic_icon_and_recency_order_without_a_query() {
     let temp = TempDir::new().unwrap();
     let items = vec![clipboard("2", "newer"), clipboard("1", "older")];
     let runtime = runtime(state(&temp, Mode::Clipboard, items));

@@ -178,6 +178,10 @@ chmod +x "$RT/bin/cliphist"
 
 SECRET="gofi-e2e-clipboard-secret-$RANDOM"
 printf '%s' "$SECRET" | nested env PATH="$RT/bin:$PATH" cliphist store
+# A newer entry whose "clipboard" match is weaker (mid-word, not a word
+# boundary). Without match ordering, recency would put it first and the copy
+# assertion below would fail.
+printf '%s' "preclipboard" | nested env PATH="$RT/bin:$PATH" cliphist store
 nested env PATH="$RT/bin:$PATH" cliphist list | head -1 >/dev/null \
   || fail "the private cliphist database is empty"
 
@@ -208,6 +212,7 @@ if jq -e '.modes | has("clipboard")' "$RT/state/gofi/state.json" >/dev/null 2>&1
   fail "clipboard entries were persisted"
 fi
 
+echo "PASS: match quality beat recency when picking a clipboard entry"
 echo "PASS: copied a cliphist entry and wl-paste returned it"
 echo "PASS: no clipboard content or IDs in state or logs"
 echo "evidence: $EVIDENCE"

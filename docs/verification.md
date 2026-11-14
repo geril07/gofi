@@ -28,9 +28,9 @@ maintenance and catches nothing.
 - Launch: argv exactly as parsed; quoted args preserved; field codes expanded;
   terminal wrapping; `Path=`; spawn failure is reported and does not panic.
 - Clipboard: `cliphist list` parsing (id + preview, tabs, empty lines, 750 entries);
-  fuzzy filter preserves recency order; `cliphist decode <id>` streams to `wl-copy`;
-  missing/failing commands report without printing content; state and logs contain no
-  previews or IDs.
+  ranking by match score, then match position, then recency; empty query preserves
+  recency; `cliphist decode <id>` streams to `wl-copy`; missing/failing commands
+  report without printing content; state and logs contain no previews or IDs.
 - UI: the tree contains the expected rows, selected row, query; seven visible rows;
   no panic with an empty corpus or a missing icon.
 - E2E: `gofi` window appears with `app_id="gofi"`, is focused, accepts typed text,
@@ -525,8 +525,10 @@ session:
 1. Put a wrapper named `cliphist` first in `PATH` that calls the real binary with
    `-db-path "$RT/cliphist.db"` and passes `"$@"`. This keeps gofi's command line
    unchanged while the database lives in the temp dir.
-2. Seed with `printf 'gofi-test-value' | cliphist store`.
-3. Start `gofi clipboard` under the nested Sway, wait for the row, select it.
+2. Seed with `printf 'gofi-test-value' | cliphist store`, then a newer entry
+   whose match for the typed query is weaker (for example `preclipboard`). The
+   older, better match must still be selected, which proves ranking beat recency.
+3. Start `gofi clipboard` under the nested Sway, type the query, select the first row.
 4. `wl-paste` in the nested session must return `gofi-test-value`.
 5. Assert `target/evidence/<task>/app.log` and `state.json` do not contain the value.
 

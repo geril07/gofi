@@ -263,7 +263,7 @@ fn empty_query_orders_by_frecency_then_title() {
 }
 
 #[test]
-fn clipboard_filters_but_keeps_provider_order() {
+fn clipboard_best_match_first_then_recency() {
     let items = vec![
         clipboard_item("clipboard:3", "the config editor is open"),
         clipboard_item("clipboard:2", "find the files here"),
@@ -273,10 +273,9 @@ fn clipboard_filters_but_keeps_provider_order() {
     let ranked = rank_at(&items, "fi", Mode::Clipboard, &Frecency::default(), NOW);
     assert_eq!(
         order(&items, &ranked),
-        ["the config editor is open", "find the files here"],
-        "cliphist order wins even though the second entry scores higher"
+        ["find the files here", "the config editor is open"],
+        "the prefix match beats the mid-word match even though it is older"
     );
-    assert_eq!(ranked[1].positions, [9, 10]);
 
     // Frecency is not consulted, even for a heavily used entry.
     let mut frecency = Frecency::default();
@@ -285,6 +284,48 @@ fn clipboard_filters_but_keeps_provider_order() {
     }
     let used = rank_at(&items, "fi", Mode::Clipboard, &frecency, NOW);
     assert_eq!(order(&items, &used), order(&items, &ranked));
+}
+
+#[test]
+fn clipboard_equal_scores_prefer_the_earlier_match() {
+    // A prefix and a word-boundary match score the same. The newer entry matches
+    // at 3, the older at 0, so the earlier match must win before recency.
+    let items = vec![
+        clipboard_item("clipboard:2", "xx git"),
+        clipboard_item("clipboard:1", "git status"),
+    ];
+
+    let ranked = rank_at(&items, "git", Mode::Clipboard, &Frecency::default(), NOW);
+    assert_eq!(
+        ranked[0].score, ranked[1].score,
+        "premise: same match score"
+    );
+    assert_eq!(
+        order(&items, &ranked),
+        ["git status", "xx git"],
+        "equal scores: the earlier match wins before recency"
+    );
+}
+
+#[test]
+fn clipboard_equal_scores_and_positions_fall_back_to_recency() {
+    // Structural twins: same score, both start at 0. Provider order is newest
+    // first, so the newer entry wins the last tie.
+    let items = vec![
+        clipboard_item("clipboard:2", "git status"),
+        clipboard_item("clipboard:1", "git rebase -i"),
+    ];
+
+    let ranked = rank_at(&items, "git", Mode::Clipboard, &Frecency::default(), NOW);
+    assert_eq!(
+        ranked[0].score, ranked[1].score,
+        "premise: same match score"
+    );
+    assert_eq!(
+        order(&items, &ranked),
+        ["git status", "git rebase -i"],
+        "equal scores and positions: the newer entry wins"
+    );
 }
 
 #[test]

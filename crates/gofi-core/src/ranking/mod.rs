@@ -76,9 +76,10 @@ impl Ranker {
             .reparse(query, CaseMatching::Smart, Normalization::Smart);
         let empty_query = self.pattern.atoms.is_empty();
 
-        // cliphist owns the order: filter, never reorder, never blend frecency.
+        // cliphist owns the history, never the ranking: sort by match quality on
+        // the text already in memory, and never blend frecency.
         if mode == Mode::Clipboard {
-            return self.filter_preserving_order(items);
+            return self.rank_clipboard(items);
         }
         if empty_query {
             return rank_by_frecency(items, frecency, now);
@@ -115,19 +116,26 @@ impl Ranker {
         ranked.into_iter().map(|(_, ranked)| ranked).collect()
     }
 
-    /// Keep provider order, drop non-matches.
-    fn filter_preserving_order(&mut self, items: &[Item]) -> Vec<Ranked> {
-        let mut out = Vec::new();
+    /// Clipboard: best match first, cliphist's recency breaking ties, and no
+    /// frecency blend. An empty query scores every entry 0 with no positions, so
+    /// the index decides and the result is cliphist's order.
+    fn rank_clipboard(&mut self, items: &[Item]) -> Vec<Ranked> {
+        let mut ranked: Vec<(f64, Ranked)> = Vec::new();
         for (index, item) in items.iter().enumerate() {
-            if let Some((score, positions)) = self.score_item(item) {
-                out.push(Ranked {
-                    index,
-                    score: i64::from(score),
-                    positions,
-                });
+            if let Some((match_score, positions)) = self.score_item(item) {
+                let score = f64::from(match_score);
+                ranked.push((
+                    score,
+                    Ranked {
+                        index,
+                        score: match_score.into(),
+                        positions,
+                    },
+                ));
             }
         }
-        out
+        sort_by_match_quality(&mut ranked, |left, right| left.index.cmp(&right.index));
+        ranked.into_iter().map(|(_, ranked)| ranked).collect()
     }
 
     /// Score one item and collect the underline positions inside its title.
@@ -215,16 +223,27 @@ fn rank_by_frecency(items: &[Item], frecency: &Frecency, now: u64) -> Vec<Ranked
     ranked.into_iter().map(|(_, ranked)| ranked).collect()
 }
 
+/// Score descending, then first matched character ascending — the keys every
+/// mode shares. Each caller appends its own final tiebreaker.
+fn sort_by_match_quality(
+    ranked: &mut [(f64, Ranked)],
+    final_key: impl Fn(&Ranked, &Ranked) -> std::cmp::Ordering,
+) {
+    ranked.sort_by(|(left_score, left), (right_score, right)| {
+        right_score
+            .total_cmp(left_score)
+            .then_with(|| match_start(left).cmp(&match_start(right)))
+            .then_with(|| final_key(left, right))
+    });
+}
+
 /// Composite descending, then first matched character ascending, then title
 /// ascending. Titles compare case-insensitively so a mixed-case corpus reads as
 /// alphabetical (`ark` before `Zed`), with the raw bytes only breaking
 /// case-insensitive equals.
 fn sort_by_composite(ranked: &mut [(f64, Ranked)], items: &[Item]) {
-    ranked.sort_by(|(left_score, left), (right_score, right)| {
-        right_score
-            .total_cmp(left_score)
-            .then_with(|| match_start(left).cmp(&match_start(right)))
-            .then_with(|| title_order(&items[left.index].title, &items[right.index].title))
+    sort_by_match_quality(ranked, |left, right| {
+        title_order(&items[left.index].title, &items[right.index].title)
     });
 }
 
