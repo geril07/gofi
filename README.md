@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/geril07/gofi/actions/workflows/ci.yml/badge.svg)](https://github.com/geril07/gofi/actions/workflows/ci.yml)
 
-![gofi demo: searching apps, switching tabs and scrolling clipboard history](docs/assets/demo.gif)
+<video src="https://github.com/user-attachments/assets/3c3d351f-92b8-446a-bc45-c839d2a2226b" controls muted></video>
 
-<sub>[Still](docs/assets/launcher.png) · [60 fps MP4](docs/assets/demo.mp4) · demo data is synthetic</sub>
+<sub>[Still](docs/assets/launcher.png) · [download the MP4](docs/assets/demo.mp4) · demo data is synthetic</sub>
 
 A fast, native Wayland launcher for Sway: applications, executables and clipboard
 history with fuzzy matching and frecency. Built in Rust on

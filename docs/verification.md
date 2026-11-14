@@ -593,17 +593,27 @@ Sway, screen capture or live session is involved.
   clipboard mode reads a private `cliphist` DB seeded with demo strings. The run
   never reads the live clipboard, the host's app list or `$XDG_STATE_HOME/gofi`.
   The scenario's data is synthetic and safe to publish.
-- **Outputs.** `docs/assets/demo.gif` (960×600, 25 fps, ~1.3 MB, 192-color
-  palette), `docs/assets/demo.mp4` (1920×1200, 60 fps) and
+- **Outputs.** `docs/assets/demo.mp4` (1920×1200, 60 fps) and
   `docs/assets/launcher.png` (1600×992, transparent corners, taken at the
-  `still` mark).
+  `still` mark). The README embeds an uploaded copy of the MP4, because GitHub
+  only plays video from a `user-attachments` URL, not from a file in the
+  repository; `docs/assets/demo.mp4` stays as the source and download.
 - **Scenario.** Search ("firef"), two row moves, `PageDown`/`Home`, Tab to Run,
   an executable query ("ff"), Tab to Clipboard, row moves and `PageDown`, then
   Shift+Tab back to Apps and "gh". The `end` mark lands on the same resting
-  state as the start, so the GIF loops without a jump.
-- **Checks.** `record-demo.sh` fails if the GIF exceeds 5 MB or the still is not
-  1600×992; `ffprobe` reports 60 fps for the MP4. Work files and logs are under
+  state as the start.
+- **Checks.** `record-demo.sh` fails if the MP4 is not 1920×1200 at 60 fps or
+  the still is not 1600×992. Work files and logs are under
   `target/evidence/demo/`.
+- **Publishing.** GitHub's Markdown API only renders a video player for an
+  uploaded user asset. Re-upload after a re-record and replace the URL in the
+  README:
+
+  ```sh
+  curl -X POST "https://uploads.github.com/user-attachments/assets?name=demo.mp4&content_type=video%2Fmp4&repository_id=$(gh api repos/geril07/gofi --jq .id)" \
+    -H "Authorization: Bearer $(gh auth token)" --data-binary @docs/assets/demo.mp4
+  ```
+
 
 ## Performance measurement
 
