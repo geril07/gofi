@@ -91,6 +91,9 @@ impl Args {
                     args.mode =
                         Mode::parse(other).ok_or_else(|| format!("unknown mode: {other}"))?;
                 }
+                // Headless recording: the rest of the command line goes to Rune's
+                // tooling (`--script`, `--video`, `--snap`, `--scale`, ...).
+                "--record" => break,
                 other => return Err(format!("unknown argument: {other}")),
             }
         }
@@ -255,7 +258,38 @@ Options:
   -q, --query TEXT    fuzzy query for --dump (default: empty)
   -n, --limit N       maximum results for --dump (default: 50)
   -h, --help          show this help
-  -V, --version       show the version",
+  -V, --version       show the version
+
+  --record            hand the remaining flags to Rune's headless tooling
+                      (--script, --snap, --video, --scale, ...)",
         version = env!("CARGO_PKG_VERSION")
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn record_hands_the_rest_to_rune_without_parsing_it() {
+        let args = Args::parse(
+            [
+                "apps",
+                "--record",
+                "--script",
+                "scenario.json",
+                "--video",
+                "out.mp4",
+            ]
+            .map(str::to_string),
+        )
+        .unwrap();
+        assert_eq!(args.mode, Mode::Apps);
+        assert!(!args.help && !args.version && !args.dump);
+    }
+
+    #[test]
+    fn unknown_flags_are_still_errors() {
+        assert!(Args::parse(["--bogus".to_string()]).is_err());
+    }
 }

@@ -552,7 +552,7 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
 - The CJK query `日本` renders. Evidence `target/evidence/ui-final-cjk/`.
 - The installed copy (`sha256 bf010ae6…` at the time) passes `e2e-sway.sh` and
   `e2e-launch.sh`; evidence `target/evidence/ui-installed*`.
-- `just check` is green (**83 tests**), including unit tests that find the
+- `just check` is green (**86 tests**), including unit tests that find the
   selection pill mid-flight one frame after `Down`, find the tab underline
   mid-flight after `Tab`, and assert a tab label's rect is unchanged when the
   selection moves.
@@ -573,6 +573,37 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
   overshoot, settled by ~0.2 s), tab shared-element 0.16 s with 0.2 bounce, mode
   swap 10 px at 0.14/0.11 s. There is no open animation; the first frame is
   final.
+
+## Demo recording (2026-11-14)
+
+The README demo is rendered through Rune's headless tooling, not a compositor:
+
+```sh
+just demo
+# scripts/record-demo.sh --binary target/release/gofi
+```
+
+`gofi --record` stops gofi's own argument parser and hands the remaining flags
+to Rune (`--script`, `--video`, `--snap`, `--scale`, ...). The renderer is the
+same one the window uses, on a fixed virtual clock, at `--scale 2`; no nested
+Sway, screen capture or live session is involved.
+
+- **Fixtures, not the host.** `XDG_DATA_HOME` and `XDG_DATA_DIRS` point at a
+  generated `applications/` directory, `PATH` is a curated bin directory, and
+  clipboard mode reads a private `cliphist` DB seeded with demo strings. The run
+  never reads the live clipboard, the host's app list or `$XDG_STATE_HOME/gofi`.
+  The scenario's data is synthetic and safe to publish.
+- **Outputs.** `docs/assets/demo.gif` (960×600, 25 fps, ~1.3 MB, 192-color
+  palette), `docs/assets/demo.mp4` (1920×1200, 60 fps) and
+  `docs/assets/launcher.png` (1600×992, transparent corners, taken at the
+  `still` mark).
+- **Scenario.** Search ("firef"), two row moves, `PageDown`/`Home`, Tab to Run,
+  an executable query ("ff"), Tab to Clipboard, row moves and `PageDown`, then
+  Shift+Tab back to Apps and "gh". The `end` mark lands on the same resting
+  state as the start, so the GIF loops without a jump.
+- **Checks.** `record-demo.sh` fails if the GIF exceeds 5 MB or the still is not
+  1600×992; `ffprobe` reports 60 fps for the MP4. Work files and logs are under
+  `target/evidence/demo/`.
 
 ## Performance measurement
 
