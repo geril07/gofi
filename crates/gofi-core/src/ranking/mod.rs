@@ -23,7 +23,7 @@ pub struct Ranked {
     pub index: usize,
     /// The sort key rounded to an integer. Ordering uses the unrounded value.
     pub score: i64,
-    /// Character indices in `Item::title` to underline.
+    /// Character indices in `Item::title` to underline, ascending.
     pub positions: Vec<u32>,
 }
 
@@ -215,15 +215,23 @@ fn rank_by_frecency(items: &[Item], frecency: &Frecency, now: u64) -> Vec<Ranked
     ranked.into_iter().map(|(_, ranked)| ranked).collect()
 }
 
-/// Composite descending, then title ascending. Titles compare case-insensitively
-/// so a mixed-case corpus reads as alphabetical (`ark` before `Zed`), with the
-/// raw bytes only breaking case-insensitive equals.
+/// Composite descending, then first matched character ascending, then title
+/// ascending. Titles compare case-insensitively so a mixed-case corpus reads as
+/// alphabetical (`ark` before `Zed`), with the raw bytes only breaking
+/// case-insensitive equals.
 fn sort_by_composite(ranked: &mut [(f64, Ranked)], items: &[Item]) {
     ranked.sort_by(|(left_score, left), (right_score, right)| {
         right_score
             .total_cmp(left_score)
+            .then_with(|| match_start(left).cmp(&match_start(right)))
             .then_with(|| title_order(&items[left.index].title, &items[right.index].title))
     });
+}
+
+/// Where the query first matched the visible title. A match found only in
+/// keywords has no visible position and sorts after every match that has one.
+fn match_start(ranked: &Ranked) -> u32 {
+    ranked.positions.first().copied().unwrap_or(u32::MAX)
 }
 
 fn title_order(left: &str, right: &str) -> std::cmp::Ordering {

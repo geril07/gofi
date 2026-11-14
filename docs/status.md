@@ -220,6 +220,23 @@ the selected label, drop the rail, and make the selection snappier.
 - `scripts/record-demo.sh` / `just demo` rebuilds the fixtures, private cliphist
   DB and assets; nothing from the live clipboard, app list or gofi state is read.
 
+## Ranking tiebreak (2026-11-14)
+
+- Equal match scores now break by the first matched character's position in the
+  title before the title itself, so a match at offset 8 no longer beats one at 0
+  on its name alone. Apps and Run only; Clipboard keeps cliphist's order.
+- A clearly better match still wins: for `ed`, `Text Editor` (62, start 5) stays
+  above `Redshift` (36, start 1). The tiebreak only fires on exact ties.
+- Real app list, `-q te`: Telegram and Text Editor (62, start 0) now precede
+  "Qt V4L2 test Utility" (62, start 8).
+- `word_boundary_matches_beat_mid_word_matches` changed: its two mid-word matches
+  tie at 76, so "Xterm Settings Manager" (start 1) now precedes "Determinate"
+  (start 2).
+- Clipboard match-quality sorting is a gap, not a decision: issue
+  [#6](https://github.com/geril07/gofi/issues/6). ADR 0008 is unchanged until it
+  is resolved.
+- ADR 0004 amended; three tests pin the tiebreak. `just check` green (**89 tests**).
+
 ## In progress
 
 Nothing. **M4 — Sway integration and daily use — is next.**

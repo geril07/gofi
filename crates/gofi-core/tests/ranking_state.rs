@@ -90,8 +90,54 @@ fn word_boundary_matches_beat_mid_word_matches() {
 
     assert_eq!(
         order(&items, &ranked),
-        ["Terminal", "Determinate", "Xterm Settings Manager"],
-        "the word-boundary match wins; the two mid-word matches tie and fall to title"
+        ["Terminal", "Xterm Settings Manager", "Determinate"],
+        "the word-boundary match wins; the two mid-word matches tie and the \
+         earlier start (1 before 2) breaks it"
+    );
+}
+
+#[test]
+fn earlier_match_wins_a_score_tie() {
+    // Both are consecutive matches at a word boundary, so they score the same;
+    // the title would put "Kind Of Sort" first. The match closer to the start
+    // must win instead.
+    let items = corpus(&["Kind Of Sort", "Sort New"]);
+    let ranked = rank_at(&items, "sort", Mode::Apps, &Frecency::default(), NOW);
+
+    assert_eq!(
+        ranked[0].score, ranked[1].score,
+        "premise: the two matches score the same"
+    );
+    assert_eq!(
+        order(&items, &ranked),
+        ["Sort New", "Kind Of Sort"],
+        "equal scores: the earlier match wins before the title"
+    );
+}
+
+#[test]
+fn earlier_match_does_not_beat_a_better_match() {
+    // "Redshift" matches at 1, "Text Editor" at 5, but the word boundary makes
+    // the later match clearly better. Position only breaks ties.
+    let items = corpus(&["Redshift", "Text Editor"]);
+    let ranked = rank_at(&items, "ed", Mode::Apps, &Frecency::default(), NOW);
+
+    assert_eq!(
+        order(&items, &ranked),
+        ["Text Editor", "Redshift"],
+        "a word-boundary match still beats an earlier mid-word match"
+    );
+}
+
+#[test]
+fn equal_scores_and_positions_fall_back_to_title() {
+    let items = corpus(&["Sort Of", "Sort New"]);
+    let ranked = rank_at(&items, "sort", Mode::Apps, &Frecency::default(), NOW);
+
+    assert_eq!(
+        order(&items, &ranked),
+        ["Sort New", "Sort Of"],
+        "both start at 0, so the title breaks the tie"
     );
 }
 
