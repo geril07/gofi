@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/geril07/gofi/actions/workflows/ci.yml/badge.svg)](https://github.com/geril07/gofi/actions/workflows/ci.yml)
 
-<video src="https://github.com/user-attachments/assets/3c3d351f-92b8-446a-bc45-c839d2a2226b" controls muted></video>
+<video src="https://github.com/user-attachments/assets/a0cbf96d-a24f-4233-90c7-df2ae20030f2" controls muted></video>
 
 <sub>[Still](docs/assets/launcher.png) · [download the MP4](docs/assets/demo.mp4) · demo data is synthetic</sub>
 
