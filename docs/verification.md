@@ -575,28 +575,56 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
   10 px at 0.14/0.11 s, and the selection retuned on 2026-11-15 (below). There is
   no open animation; the first frame is final.
 
-## Selection glide without bounce (2026-11-15)
+## Selection lands at once (2026-11-15)
 
-ADR 0010's selection spring is retuned: a one-row move lands at once, longer
-jumps glide on a critically damped spring scaled by distance, and a wrap lands at
-once. The tab underline and mode swap are unchanged.
+The distance-scaled glide was tried, shipped for a day, and dropped when the
+selection became an accent fill: with dark ink on the selected row, a fill that
+travels sits under the wrong text colour on its way, so fill and ink now land in
+the same frame.
 
-- `ui::motion::tests::one_row_lands_at_once_and_a_jump_stretches_without_bounce`
-  pins the curve: 0 and 1 slots return `Spring::NONE`, two slots are the 0.14 s
-  floor, six the 0.24 s ceiling, duration never decreases with distance, bounce
-  is 0 at every distance, and past the window the glide is already longest.
-- `ui::tests::the_selection_pill_lands_one_row_and_glides_a_jump` drives the real
-  view: `Down` leaves the pill resting at y 146 on the next frame (no
-  interpolation), `End` is mid-flight one frame later and rests at y 374, and a
-  `Down` from the last row wraps to y 89 at once.
-- Geometry, the resting view and `GOFI_MOTION=off` are unaffected: the curve only
-  changes the path between two selection slots. The mid-flight screenshots in
-  `target/evidence/ui-tabs*` predate this change; re-capture only if a visual
-  reference is needed.
-- `cargo fmt -p gofi`, `cargo clippy --workspace --all-targets -- -D warnings` and
-  `cargo test --workspace` pass (**92 tests**).
-- The visual feel is the owner's check. No e2e assertion covers a mid-flight
-  pill; the nested-Sway captures are taken at rest.
+- `ui::tests::the_selection_pill_lands_every_move` drives the real view: `Down`
+  rests at y 146 on the next frame, `End` is already at y 374, and a `Down` from
+  the last row wraps to y 89 — no interpolation anywhere.
+- `ui::tests::the_row_ink_lands_with_the_selection` records the view with Rune's
+  `motion_gate` and reads the painted text colour: one frame after `End`, the
+  newly selected row paints `#1e1e2e` and the row it left paints `#cdd6f4`.
+  Removing `tx.color_motion(Spring::NONE)` makes it fail on an OKLCH mix between
+  the two inks, so it covers the crossfade rather than the final value.
+- The tab underline flight and the mode swap are unchanged and still animate;
+  `GOFI_MOTION=off` still lands everything and leaves the resting view identical.
+- Geometry, the resting view and the e2e captures are unaffected.
+- `cargo fmt -p gofi`, `cargo clippy --workspace --all-targets -- -D warnings`
+  and `cargo test --workspace` pass (**92 tests**).
+- The visual feel is the owner's check; the nested-Sway captures are taken at
+  rest.
+
+## Palette: Catppuccin Mocha (2026-11-15)
+
+ADR 0010's second amendment swaps Macchiato (copied from the rofi theme) for
+Mocha, the flavour Noctalia's `Catppuccin Lavender` scheme generates, and makes
+the selected row an accent fill with panel ink.
+
+- `scripts/e2e-sway.sh --binary target/debug/gofi --evidence
+  target/evidence/ui-solid`: **PASS** (open, focus, Escape, second invocation
+  closes). The capture shows the `#1e1e2e` panel, the `#89b4fa` pill with
+  `#1e1e2e` title, the `surface0` scrollbar track and `#cdd6f4` text elsewhere.
+- No test pins colour hexes: a test that restates a constant catches nothing.
+  The *paint* is pinned where it can move, by
+  `the_row_ink_lands_with_the_selection` (see the section above).
+- `cargo fmt -p gofi`, `cargo clippy --workspace --all-targets -- -D warnings`
+  and `cargo test --workspace` pass (**93 tests**), debug build.
+- Contrast, sampled from the rendered frame: selected title on the accent
+  **7.79:1**, row text on the panel **11.34:1**, muted text on the panel
+  **4.44:1**. The accent fill against the panel is the same 7.79:1, so the
+  selected row is unambiguous.
+- The tint attempts were measured the same way and are recorded here because the
+  numbers contradict the linear-space maths: Rune composites alpha in sRGB, so
+  16% paints `#2f374f` (**1.36:1**) and 34% `#425173` (2.07:1), not the
+  `#404f72`/`#485d84` (1.98/2.48:1) computed in linear space. That is why the
+  palette swap first read as no change on screen; both tints were rejected for
+  the accent fill.
+- Not verified: how it reads on the real output over a wallpaper, and next to
+  the waybar (which still imports `macchiato.css`). Both are the owner's check.
 
 ## Demo recording (2026-11-14)
 

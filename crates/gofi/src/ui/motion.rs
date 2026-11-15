@@ -6,32 +6,6 @@
 
 use rune::{Spring, SpringPair, Transition};
 
-/// The selection pill's longest glide, for a jump across the visible window.
-/// No bounce: the travel is a slide, not an overshoot, and a one-row move lands
-/// at once, so this only covers the jumps.
-const SELECT_LONGEST: f32 = 0.24;
-/// The shortest animated glide, two slots away.
-const SELECT_SHORTEST: f32 = 0.14;
-/// Slots from the first to the last visible row (seven rows).
-const SELECT_SPAN: usize = 6;
-
-/// The selection pill's spring for a move of `slots` rows.
-///
-/// One row lands at once: it is the arrow-key case, and a glide there trails
-/// the highlight under key repeat. Further moves glide on a critically damped
-/// spring whose duration grows with the square root of the distance, so two
-/// rows do not crawl and a jump across the window does not snap.
-pub fn select(slots: usize) -> Spring {
-    if slots <= 1 {
-        return Spring::NONE;
-    }
-
-    let share = (slots.min(SELECT_SPAN) as f32 / SELECT_SPAN as f32).sqrt();
-    let duration = (SELECT_LONGEST * share).clamp(SELECT_SHORTEST, SELECT_LONGEST);
-
-    Spring::new(duration, 0.0)
-}
-
 /// The tab indicator's shared-element flight.
 pub const TAB: Spring = Spring::new(0.16, 0.2);
 /// A mode swap: enter slightly slower than exit.
@@ -111,35 +85,14 @@ mod tests {
         assert!(enabled_from(None));
 
         let off = Motion::new(false);
-        assert_eq!(off.spring(select(2)), Spring::NONE);
+        assert_eq!(off.spring(TAB), Spring::NONE);
         assert_eq!(off.transition(Transition::opacity()), Transition::none());
     }
 
     #[test]
     fn on_keeps_the_authored_motion() {
         let on = Motion::new(true);
-        assert_eq!(on.spring(select(2)), select(2));
+        assert_eq!(on.spring(TAB), TAB);
         assert_eq!(on.transition(Transition::opacity()), Transition::opacity());
-    }
-
-    #[test]
-    fn one_row_lands_at_once_and_a_jump_stretches_without_bounce() {
-        assert_eq!(select(0), Spring::NONE);
-        assert_eq!(select(1), Spring::NONE);
-        assert_eq!(select(2).duration, SELECT_SHORTEST);
-        assert_eq!(select(SELECT_SPAN).duration, SELECT_LONGEST);
-
-        let mut previous = 0.0;
-
-        for slots in 2..=SELECT_SPAN {
-            let spring = select(slots);
-            assert_eq!(spring.bounce, 0.0, "{slots} slots");
-            assert!(spring.duration >= previous, "{slots} slots: {spring:?}");
-            assert!((SELECT_SHORTEST..=SELECT_LONGEST).contains(&spring.duration));
-            previous = spring.duration;
-        }
-
-        // Past the window the glide is already at its longest.
-        assert_eq!(select(60), select(SELECT_SPAN));
     }
 }

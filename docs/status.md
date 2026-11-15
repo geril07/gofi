@@ -257,7 +257,11 @@ the selected label, drop the rail, and make the selection snappier.
   `github` hit (84); 750 entries still rank in 13–16 ms. `just check` green
   (**91 tests**).
 
-## Selection glide without bounce (2026-11-15)
+## Selection glide without bounce (2026-11-15, superseded)
+
+Superseded the same day by the accent fill: a travelling highlight and an ink
+that switches with it cannot both be right, so the selection now lands at once.
+Kept for the bounce finding.
 
 Owner review: the 0.17 s / 0.25 bounce pill read as bouncing, and the earlier
 0.24 s / 0 no-bounce version had felt linear and slow. The selection is now
@@ -271,15 +275,53 @@ distance-aware and has no bounce.
   and the longest jumps use it.
 - A **wrap** from the last row to the first lands at once; the list's window
   jumps with it, so a glide would read as travel that did not happen.
-- `AppState::set_selected` records the slot delta (`selection_slots`); the pill
-  maps it through `motion::select`. Typing and mode switches reset it to zero.
-- The tab underline (0.16 s / 0.2 bounce) and the mode swap are unchanged.
-- Tests: the curve is pinned in `ui/motion.rs`, and the headless view test now
-  asserts a one-row cut, a mid-flight `End` jump and an instant wrap
-  (`the_selection_pill_lands_one_row_and_glides_a_jump`).
+- Superseded the same day: the accent fill needs the ink to switch with it, and
+  a travelling fill cannot, so `motion::select`, `selection_slots` and their
+  tests were removed. The bounce finding (no bounce anywhere in the selection)
+  is what this section leaves behind.
+
+## Catppuccin Mocha palette (2026-11-15)
+
+Owner review: the colors did not feel right. The palette had been copied from
+the rofi theme in M0 and never re-picked; every surface was the same blue-violet
+family, and the 16% pill separated from the panel by only 1.98:1.
+
+- The launcher is now **Catppuccin Mocha**, the flavour Noctalia's `Catppuccin
+  Lavender` scheme generates, so it shares a surface with the shell's panels:
+  `base #1e1e2e` panel, `surface0 #313244` scrollbar track, `text #cdd6f4`,
+  `blue #89b4fa`, `overlay1 #7f849c` for muted text and the 1 px hairline.
+- The selection is the **accent at full strength** (`#89b4fa`) with panel ink
+  (`#1e1e2e`) on the selected row, as rofi had it: 7.79:1. Both tints were
+  tried and rejected: 16% rendered as `#2f374f` (1.36:1) and 34% as `#425173`
+  (2.07:1), and neither is a palette colour — a light accent over a dark base
+  always desaturates to slate. The owner's review: panel, scrollbar and tab
+  underline are right; only the selected row's background was wrong, and it
+  should be the accent itself.
+- The quiet alternative stays documented: `surface2 #585b70` for the row and
+  blue only on the underline and scrollbar. One line, grey selection.
+- The row ink switches in the **same frame** as the selection. Rune springs
+  colours on their own track, so moving the selection crossfaded the old row's
+  text back to light and the new one's to dark; the key and wheel handlers now
+  set `tx.color_motion(Spring::NONE)`.
+- The selection therefore **lands at once on every move**, as rofi's did. A
+  travelling pill would cover neither row during the glide: the old title would
+  paint `#cdd6f4` on `#89b4fa` (1.46:1) and the new one `#1e1e2e` on the panel
+  (1.0:1), i.e. both unreadable for 0.14–0.24 s. `motion::select`, the
+  distance curve and `selection_slots` are removed with it.
+- Pinned by `the_row_ink_lands_with_the_selection`: Rune's `motion_gate` records
+  the paint, `End` jumps three slots, and one frame later the new row paints
+  `#1e1e2e` and the old one `#cdd6f4`, with the pill already on the third row.
+  Removing the `color_motion` line makes it fail on an OKLCH mix between inks;
+  `the_selection_pill_lands_every_move` pins the cut on `Down`, `End` and wrap.
+- `Palette`'s fields are named by role (`panel`, `track`, `text`, `accent`,
+  `muted`) instead of by Catppuccin token, because the panel is `base`, not
+  `mantle`; keeping the old names would have been wrong.
+- The rest of the desktop is split: **Noctalia is Mocha** (`Catppuccin Lavender`,
+  `mSurface #1e1e2e`), while **kitty** (background `#24273a`) and the **waybar**
+  (`macchiato.css`) still run Macchiato. The two flavours differ by a few
+  percent per channel; gofi matches the shell, not the bar.
 - `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and
-  `cargo test --workspace` pass (**92 tests**). Debug build only; nothing was
-  installed. ADR 0010 amended; architecture and verification updated.
+  `cargo test --workspace` pass; debug build only. ADR 0010 amended.
 
 ## In progress
 

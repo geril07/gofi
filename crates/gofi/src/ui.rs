@@ -1,9 +1,9 @@
 //! The Rune launcher window.
 //!
-//! The quiet skin: an 800×496 panel, Catppuccin Macchiato, JetBrains Mono,
-//! 32 px icons, seven 48 px rows, a tinted selection pill and a scrollbar at
-//! the list's edge. The compositor owns size and placement; this view fills
-//! whatever it is given.
+//! The quiet skin: an 800×496 panel, Catppuccin Mocha, JetBrains Mono,
+//! 32 px icons, seven 48 px rows, an accent-filled selection row and a
+//! scrollbar at the list's edge. The compositor owns size and placement; this
+//! view fills whatever it is given.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -19,8 +19,8 @@ use gofi_core::store::State;
 use gofi_core::{Action, Env, Item, ItemId, ItemKind, Loaded, Mode, Provider, ProviderError};
 use rune::tok::TextStyle;
 use rune::{
-    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, Span, TextEdit, Tx, WheelEvent,
-    WindowOptions, col, el, row, text, text_input,
+    App, AppSpec, Color, Cx, El, Image, ImageCache, Key, KeyEvent, Span, Spring, TextEdit, Tx,
+    WheelEvent, WindowOptions, col, el, row, text, text_input,
 };
 
 mod motion;
@@ -44,8 +44,6 @@ const TAB_UNDERLINE_TOP: f32 = 45.5;
 const TAB_UNDERLINE_H: f32 = 2.0;
 const PANEL_RADIUS: f32 = 12.0;
 const ROW_RADIUS: f32 = 8.0;
-/// A tinted selection instead of rofi's filled bar.
-const SELECTION_ALPHA: f32 = 0.16;
 const ICON: f32 = 32.0;
 const SCROLLBAR_W: f32 = 8.0;
 /// Rofi/Pango draw matched text with a 2 px underline at 1x; Rune's default is 1 px.
@@ -62,47 +60,56 @@ const FONTS: &[&[u8]] = &[
 const BODY: TextStyle = TextStyle::new(21.333, 400.0).lh(26.0);
 const TAB_TEXT: TextStyle = TextStyle::new(15.0, 500.0).lh(20.0);
 
-/// Catppuccin Macchiato, converted from sRGB to the linear space Rune blends in.
+/// Catppuccin Mocha, the flavour Noctalia's palette (`Catppuccin Lavender`)
+/// generates, converted from sRGB to the linear space Rune stores colours in.
+/// Alpha is composited in sRGB on screen, so any blend written down here should
+/// be computed in sRGB, not in this space.
+///
+/// The roles are the ones the rest of the desktop uses: `panel` and `track` are
+/// Mocha's `base` and `surface0`, the pair Noctalia paints `mSurface` and
+/// `mSurfaceVariant` with, so the launcher sits on the same surface as the
+/// shell's panels. The terminal and the waybar still run Macchiato; the two
+/// flavours differ by a few percent per channel.
 struct Palette {
-    mantle: Color,
-    base: Color,
+    panel: Color,
+    track: Color,
     text: Color,
-    blue: Color,
-    overlay1: Color,
+    accent: Color,
+    muted: Color,
 }
 
 impl Palette {
     fn get() -> &'static Palette {
         static PALETTE: OnceLock<Palette> = OnceLock::new();
         PALETTE.get_or_init(|| Palette {
-            mantle: Color {
+            panel: Color {
                 r: 0.012983,
-                g: 0.0144438,
-                b: 0.0295568,
+                g: 0.012983,
+                b: 0.0273209,
                 a: 1.0,
             },
-            base: Color {
-                r: 0.017642,
-                g: 0.0202886,
-                b: 0.0423114,
+            track: Color {
+                r: 0.0307134,
+                g: 0.031896,
+                b: 0.0578054,
                 a: 1.0,
             },
             text: Color {
-                r: 0.590619,
-                g: 0.651406,
-                b: 0.913099,
-                a: 1.0,
-            },
-            blue: Color {
-                r: 0.254152,
-                g: 0.417885,
+                r: 0.610496,
+                g: 0.672443,
                 b: 0.904661,
                 a: 1.0,
             },
-            overlay1: Color {
-                r: 0.215861,
-                g: 0.242281,
-                b: 0.361307,
+            accent: Color {
+                r: 0.250158,
+                g: 0.456411,
+                b: 0.955973,
+                a: 1.0,
+            },
+            muted: Color {
+                r: 0.212231,
+                g: 0.23074,
+                b: 0.332452,
                 a: 1.0,
             },
         })
@@ -195,9 +202,6 @@ pub struct AppState {
     query: TextEdit,
     selected: usize,
     offset: usize,
-    /// How many slots the selection moved on its last change, for the pill's
-    /// spring. Zero when it landed at once or did not move.
-    selection_slots: usize,
     items: HashMap<Mode, Vec<Item>>,
     ranked: Vec<Ranked>,
     frecency: State,
@@ -225,7 +229,6 @@ impl AppState {
             query,
             selected: 0,
             offset: 0,
-            selection_slots: 0,
             items: HashMap::new(),
             ranked: Vec::new(),
             frecency,
@@ -303,15 +306,8 @@ impl AppState {
             return;
         }
         let len = len as isize;
-        let from = self.selected;
-        let next = (from as isize + delta).rem_euclid(len) as usize;
+        let next = (self.selected as isize + delta).rem_euclid(len) as usize;
         self.set_selected(next);
-        // A single step from one end to the other is a wrap, not a jump: the
-        // list's window jumps with it, so a glide would read as travel that
-        // did not happen. It lands at once.
-        if delta.abs() == 1 && next.abs_diff(from) > 1 {
-            self.selection_slots = 0;
-        }
     }
 
     fn select(&mut self, index: usize) {
@@ -327,12 +323,10 @@ impl AppState {
         self.selected.saturating_sub(self.offset)
     }
 
-    /// Selects `selected` and records how far the pill has to travel.
+    /// Selects `selected` and keeps the list's window on it.
     fn set_selected(&mut self, selected: usize) {
-        let from = self.slot();
         self.selected = selected;
         self.offset = scroll_offset(self.selected, self.ranked.len());
-        self.selection_slots = self.slot().abs_diff(from);
     }
 
     fn set_mode(&mut self, mode: Mode, direction: f32) {
@@ -532,9 +526,9 @@ fn view(state: &AppState, cx: &mut Cx<AppState>) -> El {
     let mut root = col()
         .w_full()
         .h_full()
-        .fill(palette.mantle)
+        .fill(palette.panel)
         .radius(PANEL_RADIUS)
-        .border(1.0, palette.overlay1.alpha(0.35))
+        .border(1.0, palette.muted.alpha(0.35))
         .pt(10.0)
         .pb(10.0)
         .px(20.0)
@@ -567,7 +561,7 @@ fn search_field(state: &AppState, palette: &Palette) -> El {
         .h(26.0)
         .px(16.0)
         .color(palette.text)
-        .placeholder("Search...", palette.overlay1)
+        .placeholder("Search...", palette.muted)
         .on_edit(|state: &mut AppState| &mut state.query)
         .on_input_key(handle_key)
         .on_input_change(|state: &mut AppState, _tx| state.on_query_changed())
@@ -587,6 +581,11 @@ fn handle_key(state: &mut AppState, event: &KeyEvent, tx: &mut Tx) -> bool {
     };
     if !animated || !Motion::get().enabled() {
         tx.instant();
+    } else {
+        // Layout still animates here (the tab underline, a mode swap), but colour
+        // never lags: Rune springs it on its own track, which would fade the row
+        // ink behind the highlight that owns it.
+        tx.color_motion(Spring::NONE);
     }
     match &event.key {
         Key::Escape => {
@@ -702,7 +701,7 @@ fn tab_button(state: &AppState, palette: &Palette, mode: Mode, motion: &Motion) 
     let ink = if selected {
         palette.text
     } else {
-        palette.overlay1
+        palette.muted
     };
 
     let mut tab = col()
@@ -725,7 +724,7 @@ fn tab_button(state: &AppState, palette: &Palette, mode: Mode, motion: &Motion) 
             .w_full()
             .h(TAB_UNDERLINE_H)
             .radius(1.0)
-            .fill(palette.blue);
+            .fill(palette.accent);
         if motion.enabled() {
             indicator = indicator
                 .matched("tab-indicator")
@@ -791,11 +790,16 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
         .grow(1.0)
         .shrink()
         .gap(ROW_GAP)
-        .on_wheel(|state: &mut AppState, event: WheelEvent, _tx| {
+        .on_wheel(|state: &mut AppState, event: WheelEvent, tx| {
             if event.dy == 0.0 {
                 return false;
             }
             // Wheel down (negative dy in Rune's content direction) moves down.
+            if Motion::get().enabled() {
+                tx.color_motion(Spring::NONE);
+            } else {
+                tx.instant();
+            }
             state.move_selection(if event.dy > 0.0 { -1 } else { 1 });
             true
         });
@@ -805,7 +809,7 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
             list = list.child(
                 text(notice.clone())
                     .font(BODY)
-                    .color(palette.overlay1)
+                    .color(palette.muted)
                     .px(15.0)
                     .mt(8.0),
             );
@@ -813,9 +817,9 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
         return list;
     }
 
-    let slot = state.selected.saturating_sub(state.offset);
+    let slot = state.slot();
     if slot < VISIBLE {
-        list = list.child(selection_pill(palette, slot, state.selection_slots, motion));
+        list = list.child(selection_pill(palette, slot));
     }
 
     let end = (state.offset + VISIBLE).min(state.ranked.len());
@@ -837,14 +841,24 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
     list
 }
 
-fn selection_pill(palette: &Palette, slot: usize, travel: usize, motion: &Motion) -> El {
+/// The selected row: the accent at full strength, with the panel colour as its
+/// ink, as rofi had it.
+///
+/// A tint is not available in this palette. Catppuccin's accent is a light
+/// pastel and the base is dark, so blending them always desaturates to slate
+/// (34% gave `#425173`, which is not a token anywhere), and the flavour has no
+/// dark saturated surface to use instead. The quiet alternative is the neutral
+/// `surface2` `#585b70`, keeping the blue for the underline and scrollbar only.
+fn selection_pill(palette: &Palette, slot: usize) -> El {
     el().key("selection")
         .absolute(0.0, slot as f32 * (ROW_H + ROW_GAP))
-        .motion(motion.spring(motion::select(travel)))
+        // The highlight lands with the ink it carries: a fill that travels
+        // across rows would sit under the wrong text colour on its way.
+        .motion(Spring::NONE)
         .w_full()
         .h(ROW_H)
         .radius(ROW_RADIUS)
-        .fill(palette.blue.alpha(SELECTION_ALPHA))
+        .fill(palette.accent)
 }
 
 struct RowSpec<'a> {
@@ -861,7 +875,24 @@ fn row_view(state: &AppState, palette: &Palette, scale: f32, spec: RowSpec<'_>) 
         item,
         ranked,
     } = spec;
-    let icon = icon_view(state, palette, scale, item);
+    // On the accent fill the panel colour is the ink, as rofi painted the
+    // selected row; the icons keep their own colours.
+    let selected = state.selected == index;
+    let ink = if selected {
+        palette.panel
+    } else {
+        palette.text
+    };
+    let icon = icon_view(
+        state,
+        if selected {
+            palette.panel
+        } else {
+            palette.muted
+        },
+        scale,
+        item,
+    );
     let has_icon = icon.is_some();
 
     let mut row = row()
@@ -876,10 +907,12 @@ fn row_view(state: &AppState, palette: &Palette, scale: f32, spec: RowSpec<'_>) 
     if let Some(icon) = icon {
         row = row.child(icon);
     }
-    row.child(title_text(item, &ranked.positions, palette.text))
+    row.child(title_text(item, &ranked.positions, ink))
 }
 
-fn icon_view(state: &AppState, palette: &Palette, scale: f32, item: &Item) -> Option<El> {
+/// `muted` is the clipboard glyph's ink: it follows the row's text, so it stays
+/// legible on the accent fill.
+fn icon_view(state: &AppState, muted: Color, scale: f32, item: &Item) -> Option<El> {
     match item.kind {
         ItemKind::App => {
             let Some(path) = &item.icon else {
@@ -901,7 +934,7 @@ fn icon_view(state: &AppState, palette: &Palette, scale: f32, item: &Item) -> Op
             el().w(ICON)
                 .h(ICON)
                 .center()
-                .child(clipboard_glyph(20.0, palette.overlay1)),
+                .child(clipboard_glyph(20.0, muted)),
         ),
         ItemKind::Executable => None,
     }
@@ -963,7 +996,7 @@ fn scrollbar(state: &AppState, palette: &Palette) -> El {
         .w(SCROLLBAR_W)
         .h_full()
         .radius(8.0)
-        .fill(palette.base);
+        .fill(palette.track);
 
     if total == 0 {
         return track;
@@ -985,7 +1018,7 @@ fn scrollbar(state: &AppState, palette: &Palette) -> El {
             .w(SCROLLBAR_W)
             .h(handle)
             .radius(8.0)
-            .fill(palette.blue),
+            .fill(palette.accent),
     )
 }
 

@@ -125,8 +125,11 @@ fn geometry_matches_the_panel() {
     assert!(close(handle[3], 163.47), "handle height {}", handle[3]);
 }
 
+/// The highlight and the ink it carries land together: a fill that travels
+/// across rows would sit under the wrong text colour on its way, so every move
+/// is a cut, as rofi's was.
 #[test]
-fn the_selection_pill_lands_one_row_and_glides_a_jump() {
+fn the_selection_pill_lands_every_move() {
     let temp = TempDir::new().unwrap();
     let items = (0..6)
         .map(|index| app(&format!("a{index}"), &format!("App {index}")))
@@ -145,20 +148,13 @@ fn the_selection_pill_lands_one_row_and_glides_a_jump() {
     let (pill, _) = runtime.presented("selection").expect("selection pill");
     assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
 
-    // A jump glides: mid-flight one frame in, then resting four rows down.
+    // `End` is four rows away and lands on the next frame, with the ink it
+    // carries.
     press(&mut runtime, Key::End);
     let (pill, _) = runtime.presented("selection").expect("selection pill");
     assert!(
-        pill[1] > 146.0 && pill[1] < 89.0 + 5.0 * 57.0,
-        "the pill should be mid-flight, y {}",
-        pill[1]
-    );
-
-    settle(&mut runtime);
-    let (pill, _) = runtime.presented("selection").expect("selection pill");
-    assert!(
         close(pill[1], 89.0 + 5.0 * 57.0),
-        "pill y after jump {}",
+        "pill y after End {}",
         pill[1]
     );
 
@@ -665,5 +661,65 @@ fn preload_installs_items_on_the_first_poll() {
     assert!(
         !state.poll_preload(),
         "later polls do not take the preload again"
+    );
+}
+
+/// The row ink must land with the selection, not fade behind it: Rune springs
+/// colours separately from layout, so a move would otherwise crossfade the old
+/// row's text back to light and the new row's to dark.
+#[test]
+fn the_row_ink_lands_with_the_selection() {
+    use rune::motion_gate::Run;
+    use rune::motion_gate::check::paint::C_TEXT;
+
+    let temp = TempDir::new().unwrap();
+    let items = (0..4)
+        .map(|index| app(&format!("a{index}"), &format!("App {index}")))
+        .collect();
+    let runtime = runtime(state(&temp, Mode::Apps, items));
+    let mut run = Run::new(runtime, 60.0);
+    run.idle(0.2);
+    run.step();
+
+    // `End` on a short list jumps three slots, so the pill glides and both rows
+    // stay on screen.
+    run.act("end", |rt| {
+        rt.key(KeyEvent {
+            key: Key::End,
+            mods: Mods::default(),
+        });
+    });
+    run.play(0.25);
+
+    let ink = |frame: usize, row: &str| {
+        run.rec
+            .tracks
+            .iter()
+            .find(|track| track.path.ends_with(row))
+            .and_then(|track| track.paint_at(frame))
+            .map(|paint| paint.colors[C_TEXT])
+            .unwrap_or_else(|| panic!("{row} paints text on frame {frame}"))
+    };
+
+    // The first frame after the key: the ink has already switched on both rows.
+    assert_eq!(ink(1, "row-3/#1"), Palette::get().panel, "new row's ink");
+    assert_eq!(ink(1, "row-0/#1"), Palette::get().text, "old row's ink");
+
+    // A colour spring would still be in flight here; the ink is not.
+    for frame in 2..=4 {
+        assert_eq!(
+            ink(frame, "row-3/#1"),
+            Palette::get().panel,
+            "frame {frame}"
+        );
+        assert_eq!(ink(frame, "row-0/#1"), Palette::get().text, "frame {frame}");
+    }
+
+    // The pill lands on that same frame: the fill and the ink move together.
+    let (pill, _) = run.rt.presented("selection").expect("selection pill");
+    assert!(
+        (pill[1] - (89.0 + 3.0 * 57.0)).abs() < 0.5,
+        "the pill should already be on the third row, y {}",
+        pill[1]
     );
 }

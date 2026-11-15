@@ -236,16 +236,16 @@ renders only those. Geometry is the quiet 800×496 skin:
 
 | Element | Geometry |
 |---|---|
-| Panel | 800×496, mantle `#1e2030`, radius 12, 1 px overlay hairline |
+| Panel | 800×496, Mocha base `#1e1e2e`, radius 12, 1 px overlay hairline |
 | Top row | y 10, height 59, 20 px side inset |
 | Search field | left, 16 px inner padding, muted placeholder `Search...`; fixed width, a long query scrolls under the caret |
 | Tabs | right-aligned, labels shrink-wrapped (38/28/70 px), 18 px gap; active underline matches the label width, 2 px tall |
 | List | y 89, x 20, width `panel - 58`, seven 48 px rows, 9 px gap |
-| Selection | absolute pill at the selected slot, blue at 16%, radius 8 |
-| Row | transparent; text always `#cad3f5`, icons retain their colours |
+| Selection | absolute pill at the selected slot, accent `#89b4fa` fill, radius 8 |
+| Row | transparent; text `#cdd6f4`, panel ink `#1e1e2e` on the selected row, icons retain their colours |
 | App icon | 32×32 at 9 px from the row's left edge; title at 57 px |
 | Run row | no icon; title at 15 px |
-| Scrollbar | 8 px at the right, base track, blue handle, rofi's length formula |
+| Scrollbar | 8 px at the right, `surface0` track, blue handle, rofi's length formula |
 
 The list follows rofi's `scroll-method: 1`: the selected row walks down to the
 middle of the seven rows, then the list follows it (`offset = selected - 3`); near
@@ -269,13 +269,14 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 The search row takes the space left over and may shrink, so a long query
 scrolls inside it instead of widening the field and pushing the tabs. The tab
 underline is absolutely positioned at a fixed y, so selecting a tab never moves
-its label; its width follows the label. Motion lives in `ui/motion.rs`: a
-one-row selection move lands at once, so key repeat never trails the highlight;
-longer jumps and `Home`/`End` glide on a critically damped spring (no bounce)
-whose duration grows with the square root of the distance, 0.14 s at two slots
-to 0.24 s across the window. A wrap from one end of the list to the other lands
-at once, and so does typing. The tab underline flies as a shared element on
-0.16 s with 0.2 bounce, and a mode swap slides the incoming list 10 px (0.14 s)
+its label; its width follows the label. Motion lives in `ui/motion.rs`: the
+selection and the row ink it tints land in the same frame, on every move and
+wrap, as rofi's did — a fill that travels across rows would sit under the wrong
+text colour on its way, so the highlight does not animate. Colour never lags
+either: `tx.color_motion(Spring::NONE)` in the key and wheel handlers keeps the
+ink from crossfading behind a tab indicator or a mode swap. The tab underline
+flies as a shared element on 0.16 s with 0.2 bounce, and a mode swap slides the
+incoming list 10 px (0.14 s)
 while the outgoing one fades (0.11 s). `GOFI_MOTION=off` returns
 `Spring::NONE` / `Transition::none()` and marks the root `instant_changes`, so
 the resting view is pixel-identical. There is no open animation: the first frame

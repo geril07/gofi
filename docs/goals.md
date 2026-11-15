@@ -81,7 +81,8 @@ only path.
 The look is its own quiet skin; rofi remains the muscle-memory reference, not a
 pixel target.
 
-- Catppuccin Macchiato: mantle window, text `#cad3f5`, blue `#8aadf4`.
+- Catppuccin Mocha, the flavour Noctalia's `Catppuccin Lavender` palette
+  generates: base `#1e1e2e` window, text `#cdd6f4`, blue `#89b4fa`.
 - JetBrains Mono (embedded; 21.33 px body).
 - 32 px icons, 7 visible rows, 48 px row height, 9 px gap, 8 px row radius.
 - Centred, borderless, no titlebar; fixed **800×496 logical px**, 12 px panel
@@ -91,13 +92,14 @@ pixel target.
   on the right, shrink-wrapped with an 18 px gap and an active underline as wide
   as the label. No filled tab blocks.
 - Matched query characters are bold with a 2 px underline in every row.
-- Selection: a tinted pill (blue at 16%) at the selected slot; text stays
-  `#cad3f5`, icons keep their colours.
+- Selection: the accent `#89b4fa` as a filled pill at the selected slot, its
+  title in the panel colour `#1e1e2e`; other rows keep `#cdd6f4`, icons keep
+  their colours.
 - No metadata column, footer or preview pane.
 - Scrollbar: 8 px handle, blue, at the right edge.
-- Motion (ADR 0010): selection glide, tab indicator flight and a mode swap;
-  typing is instant and there is no open animation. `GOFI_MOTION=off` disables
-  the layer without changing the resting UI.
+- Motion (ADR 0010): tab indicator flight and a mode swap; the selection and
+  its ink land at once, typing is instant and there is no open animation.
+  `GOFI_MOTION=off` disables the layer without changing the resting UI.
 - No window shadow from the compositor if Swayfx adds one; the panel draws its own
   rounded background.
 

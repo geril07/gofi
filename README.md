@@ -8,7 +8,7 @@ A fast, native Wayland launcher for Sway: applications, executables and clipboar
 history with fuzzy matching and frecency. Built in Rust on
 [Rune](https://github.com/anomalyco/rune).
 
-gofi keeps the keyboard-first feel of rofi — the Catppuccin Macchiato palette
+gofi keeps the keyboard-first feel of rofi — the Catppuccin Mocha palette
 and JetBrains Mono text — and adds a ranking model that puts what you use most
 first without letting history override a clearly better match. The panel is
 quieter than rofi: a tinted selection pill, text tabs and short spring
