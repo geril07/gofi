@@ -554,10 +554,10 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
 - The CJK query `日本` renders. Evidence `target/evidence/ui-final-cjk/`.
 - The installed copy (`sha256 bf010ae6…` at the time) passes `e2e-sway.sh` and
   `e2e-launch.sh`; evidence `target/evidence/ui-installed*`.
-- `just check` is green (**86 tests**), including unit tests that find the
-  selection pill mid-flight one frame after `Down`, find the tab underline
-  mid-flight after `Tab`, and assert a tab label's rect is unchanged when the
-  selection moves.
+- `just check` is green (**86 tests**), including a unit test that finds the tab
+  underline mid-flight after `Tab` and one that asserts a tab label's rect is
+  unchanged when the selection moves. The selection-pill mid-flight check was
+  replaced on 2026-11-15 (see below).
 - Startup: **80 ms median / 100 ms p95** (20 runs on the installed build; a
   second 12-run pass measured 80/90). The previous installed 960×495 build
   measured **90 ms median** under the same harness in the same session, so
@@ -571,10 +571,32 @@ harness, `e2e-launch.sh` and `measure-startup.sh` use
   (`56da2cd1…`); the installed copy is `sha256 e6440375…`.
 - A 60-character query keeps the tabs at their resting x and scrolls inside the
   field. Evidence `target/evidence/long-query-fixed/`.
-- Motion is visual only: selection 0.17 s with 0.25 bounce (measured ~1.6 px
-  overshoot, settled by ~0.2 s), tab shared-element 0.16 s with 0.2 bounce, mode
-  swap 10 px at 0.14/0.11 s. There is no open animation; the first frame is
-  final.
+- Motion is visual only: tab shared-element 0.16 s with 0.2 bounce, mode swap
+  10 px at 0.14/0.11 s, and the selection retuned on 2026-11-15 (below). There is
+  no open animation; the first frame is final.
+
+## Selection glide without bounce (2026-11-15)
+
+ADR 0010's selection spring is retuned: a one-row move lands at once, longer
+jumps glide on a critically damped spring scaled by distance, and a wrap lands at
+once. The tab underline and mode swap are unchanged.
+
+- `ui::motion::tests::one_row_lands_at_once_and_a_jump_stretches_without_bounce`
+  pins the curve: 0 and 1 slots return `Spring::NONE`, two slots are the 0.14 s
+  floor, six the 0.24 s ceiling, duration never decreases with distance, bounce
+  is 0 at every distance, and past the window the glide is already longest.
+- `ui::tests::the_selection_pill_lands_one_row_and_glides_a_jump` drives the real
+  view: `Down` leaves the pill resting at y 146 on the next frame (no
+  interpolation), `End` is mid-flight one frame later and rests at y 374, and a
+  `Down` from the last row wraps to y 89 at once.
+- Geometry, the resting view and `GOFI_MOTION=off` are unaffected: the curve only
+  changes the path between two selection slots. The mid-flight screenshots in
+  `target/evidence/ui-tabs*` predate this change; re-capture only if a visual
+  reference is needed.
+- `cargo fmt -p gofi`, `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace` pass (**92 tests**).
+- The visual feel is the owner's check. No e2e assertion covers a mid-flight
+  pill; the nested-Sway captures are taken at rest.
 
 ## Demo recording (2026-11-14)
 

@@ -126,9 +126,11 @@ fn geometry_matches_the_panel() {
 }
 
 #[test]
-fn the_selection_pill_follows_the_selected_row() {
+fn the_selection_pill_lands_one_row_and_glides_a_jump() {
     let temp = TempDir::new().unwrap();
-    let items = vec![app("a", "Alpha"), app("b", "Beta")];
+    let items = (0..6)
+        .map(|index| app(&format!("a{index}"), &format!("App {index}")))
+        .collect();
     let mut runtime = runtime(state(&temp, Mode::Apps, items));
 
     let (pill, _) = runtime.presented("selection").expect("selection pill");
@@ -137,16 +139,33 @@ fn the_selection_pill_follows_the_selected_row() {
     assert!(close(pill[2], 742.0), "pill width {}", pill[2]);
     assert!(close(pill[3], 48.0), "pill height {}", pill[3]);
 
+    // One row is the arrow-key case: it lands at once, so key repeat never
+    // trails the highlight.
     press(&mut runtime, Key::Down);
     let (pill, _) = runtime.presented("selection").expect("selection pill");
+    assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
+
+    // A jump glides: mid-flight one frame in, then resting four rows down.
+    press(&mut runtime, Key::End);
+    let (pill, _) = runtime.presented("selection").expect("selection pill");
     assert!(
-        pill[1] > 89.0 && pill[1] < 146.0,
+        pill[1] > 146.0 && pill[1] < 89.0 + 5.0 * 57.0,
         "the pill should be mid-flight, y {}",
         pill[1]
     );
+
     settle(&mut runtime);
     let (pill, _) = runtime.presented("selection").expect("selection pill");
-    assert!(close(pill[1], 146.0), "pill y after Down {}", pill[1]);
+    assert!(
+        close(pill[1], 89.0 + 5.0 * 57.0),
+        "pill y after jump {}",
+        pill[1]
+    );
+
+    // Wrapping to the first row is a discontinuity, so it lands at once.
+    press(&mut runtime, Key::Down);
+    let (pill, _) = runtime.presented("selection").expect("selection pill");
+    assert!(close(pill[1], 89.0), "pill y after wrap {}", pill[1]);
 }
 
 #[test]

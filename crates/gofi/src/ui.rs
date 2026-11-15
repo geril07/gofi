@@ -25,7 +25,7 @@ use rune::{
 
 mod motion;
 
-use motion::{Motion, SELECT, TAB, mode_transition};
+use motion::{Motion, TAB, mode_transition};
 
 const PANEL_W: f32 = 800.0;
 const PANEL_H: f32 = 496.0;
@@ -195,6 +195,9 @@ pub struct AppState {
     query: TextEdit,
     selected: usize,
     offset: usize,
+    /// How many slots the selection moved on its last change, for the pill's
+    /// spring. Zero when it landed at once or did not move.
+    selection_slots: usize,
     items: HashMap<Mode, Vec<Item>>,
     ranked: Vec<Ranked>,
     frecency: State,
@@ -222,6 +225,7 @@ impl AppState {
             query,
             selected: 0,
             offset: 0,
+            selection_slots: 0,
             items: HashMap::new(),
             ranked: Vec::new(),
             frecency,
@@ -289,10 +293,8 @@ impl AppState {
             self.mode,
             self.frecency.frecency(self.mode),
         );
-        if self.selected >= self.ranked.len() {
-            self.selected = self.ranked.len().saturating_sub(1);
-        }
-        self.offset = scroll_offset(self.selected, self.ranked.len());
+        let selected = self.selected.min(self.ranked.len().saturating_sub(1));
+        self.set_selected(selected);
     }
 
     fn move_selection(&mut self, delta: isize) {
@@ -301,16 +303,36 @@ impl AppState {
             return;
         }
         let len = len as isize;
-        self.selected = (self.selected as isize + delta).rem_euclid(len) as usize;
-        self.offset = scroll_offset(self.selected, self.ranked.len());
+        let from = self.selected;
+        let next = (from as isize + delta).rem_euclid(len) as usize;
+        self.set_selected(next);
+        // A single step from one end to the other is a wrap, not a jump: the
+        // list's window jumps with it, so a glide would read as travel that
+        // did not happen. It lands at once.
+        if delta.abs() == 1 && next.abs_diff(from) > 1 {
+            self.selection_slots = 0;
+        }
     }
 
     fn select(&mut self, index: usize) {
         if self.ranked.is_empty() {
             return;
         }
-        self.selected = index.min(self.ranked.len() - 1);
+        self.set_selected(index.min(self.ranked.len() - 1));
+    }
+
+    /// The pill's slot within the visible window. `scroll_offset` keeps the
+    /// selected row on screen, so this stays between 0 and `VISIBLE - 1`.
+    fn slot(&self) -> usize {
+        self.selected.saturating_sub(self.offset)
+    }
+
+    /// Selects `selected` and records how far the pill has to travel.
+    fn set_selected(&mut self, selected: usize) {
+        let from = self.slot();
+        self.selected = selected;
         self.offset = scroll_offset(self.selected, self.ranked.len());
+        self.selection_slots = self.slot().abs_diff(from);
     }
 
     fn set_mode(&mut self, mode: Mode, direction: f32) {
@@ -793,7 +815,7 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
 
     let slot = state.selected.saturating_sub(state.offset);
     if slot < VISIBLE {
-        list = list.child(selection_pill(palette, slot, motion));
+        list = list.child(selection_pill(palette, slot, state.selection_slots, motion));
     }
 
     let end = (state.offset + VISIBLE).min(state.ranked.len());
@@ -815,10 +837,10 @@ fn list_view(state: &AppState, palette: &Palette, scale: f32, motion: &Motion) -
     list
 }
 
-fn selection_pill(palette: &Palette, slot: usize, motion: &Motion) -> El {
+fn selection_pill(palette: &Palette, slot: usize, travel: usize, motion: &Motion) -> El {
     el().key("selection")
         .absolute(0.0, slot as f32 * (ROW_H + ROW_GAP))
-        .motion(motion.spring(SELECT))
+        .motion(motion.spring(motion::select(travel)))
         .w_full()
         .h(ROW_H)
         .radius(ROW_RADIUS)

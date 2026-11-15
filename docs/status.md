@@ -1,6 +1,6 @@
 # Status
 
-**Last updated:** 2026-11-14
+**Last updated:** 2026-11-15
 **Phase:** M3 complete → M4 — Sway integration and daily use
 
 ## Done
@@ -256,6 +256,30 @@ the selected label, drop the rail, and make the selection snappier.
   `contest results...` (76); `-q git` groups both 88s before the mid-word
   `github` hit (84); 750 entries still rank in 13–16 ms. `just check` green
   (**91 tests**).
+
+## Selection glide without bounce (2026-11-15)
+
+Owner review: the 0.17 s / 0.25 bounce pill read as bouncing, and the earlier
+0.24 s / 0 no-bounce version had felt linear and slow. The selection is now
+distance-aware and has no bounce.
+
+- A **one-row move lands at once**. It is the arrow-key and wheel case, so key
+  repeat never trails the highlight.
+- Longer moves glide on a critically damped spring whose duration grows with the
+  square root of the distance: 0.14 s at two slots, 0.17 s at three, 0.196 s at
+  four, 0.219 s at five, 0.24 s across the six-slot window. `Home`/`End`, paging
+  and the longest jumps use it.
+- A **wrap** from the last row to the first lands at once; the list's window
+  jumps with it, so a glide would read as travel that did not happen.
+- `AppState::set_selected` records the slot delta (`selection_slots`); the pill
+  maps it through `motion::select`. Typing and mode switches reset it to zero.
+- The tab underline (0.16 s / 0.2 bounce) and the mode swap are unchanged.
+- Tests: the curve is pinned in `ui/motion.rs`, and the headless view test now
+  asserts a one-row cut, a mid-flight `End` jump and an instant wrap
+  (`the_selection_pill_lands_one_row_and_glides_a_jump`).
+- `cargo fmt`, `cargo clippy --workspace --all-targets -- -D warnings` and
+  `cargo test --workspace` pass (**92 tests**). Debug build only; nothing was
+  installed. ADR 0010 amended; architecture and verification updated.
 
 ## In progress
 

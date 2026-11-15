@@ -24,8 +24,9 @@ delay the content the launcher exists to show.
   shrink-wrapped text labels with an 18 px gap and an underline as wide as the
   label; the underline is out of flow so selecting a tab never moves its text.
   No metadata column, footer or preview pane.
-- Motion is its own module, `ui/motion.rs`. Selection travels on a 0.17 s spring
-  with 0.25 bounce, the tab underline is a shared element on 0.16 s with 0.2
+- Motion is its own module, `ui/motion.rs`. A one-row selection move lands at
+  once; longer jumps glide on a no-bounce spring scaled by distance (0.14–0.24 s,
+  amended 2026-11-15). The tab underline is a shared element on 0.16 s with 0.2
   bounce, and a mode swap slides the incoming list 10 px while the outgoing one
   fades (0.14 s / 0.11 s). Typing is instant; there is no open animation.
 - `GOFI_MOTION=off` (also `0`, `false`, `no`, `none`) returns `Spring::NONE` /
@@ -43,6 +44,26 @@ delay the content the launcher exists to show.
   Deleting the module and its call sites leaves a static UI.
 - The panel is still a normal toplevel, so no dim or compositor blur. A future
   layer-shell or resident variant would revisit that separately.
+
+## Amendment (2026-11-15): selection glide without bounce
+
+Owner review: the 0.17 s / 0.25 bounce pill read as bouncing rather than
+arriving, and the earlier 0.24 s / 0 critically damped version had felt linear
+and slow. The bounce was never the requested behavior; it was an agent's attempt
+to make the first spring read as motion.
+
+The selection now lands a one-row move at once. That is the arrow-key case, and
+any glide there trails the highlight under key repeat. Longer moves glide on a
+critically damped spring whose duration grows with the square root of the
+distance, the same shape Rune's `PaneMotion::scale_with_width` uses for panes:
+0.14 s at two slots to 0.24 s across the seven-row window. A wrap from the last
+row to the first lands at once, because the list's window jumps with it. Typing
+and mode switches still land at once.
+
+opencode's desktop app, the visual reference for the quiet skin, has no bounce in
+its motion tokens and no traveling highlight in its row lists; its one sliding
+indicator (the diff-view segmented control) is 0.18 s / 0 with no overshoot. This
+amendment matches that model while keeping gofi's positional pill.
 
 ## Revisit when
 

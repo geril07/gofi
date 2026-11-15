@@ -269,12 +269,14 @@ Wheel over the list moves the selection one row per event, with rofi's direction
 The search row takes the space left over and may shrink, so a long query
 scrolls inside it instead of widening the field and pushing the tabs. The tab
 underline is absolutely positioned at a fixed y, so selecting a tab never moves
-its label; its width follows the label. Motion lives in
-`ui/motion.rs`: the selection pill travels on a 0.17 s spring with 0.25 bounce
-(it overshoots ~1.6 px and settles in ~0.2 s), the tab underline flies as a
-shared element on 0.16 s with 0.2 bounce, and a mode swap slides the incoming
-list 10 px (0.14 s) while the outgoing one fades (0.11 s). Arrow keys, wheel and
-tab clicks animate; typing lands at once. `GOFI_MOTION=off` returns
+its label; its width follows the label. Motion lives in `ui/motion.rs`: a
+one-row selection move lands at once, so key repeat never trails the highlight;
+longer jumps and `Home`/`End` glide on a critically damped spring (no bounce)
+whose duration grows with the square root of the distance, 0.14 s at two slots
+to 0.24 s across the window. A wrap from one end of the list to the other lands
+at once, and so does typing. The tab underline flies as a shared element on
+0.16 s with 0.2 bounce, and a mode swap slides the incoming list 10 px (0.14 s)
+while the outgoing one fades (0.11 s). `GOFI_MOTION=off` returns
 `Spring::NONE` / `Transition::none()` and marks the root `instant_changes`, so
 the resting view is pixel-identical. There is no open animation: the first frame
 is the final layout, and startup is not delayed.
